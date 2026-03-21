@@ -6,6 +6,8 @@ Drop in `<StorachaFab />` and get:
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
 - OrbitDB backup/restore with progress tracking
+- P2P device linking via libp2p with copy/paste peer info
+- Multi-device registry with automatic device detection
 - Floating action button with Storacha branding
 
 ## Install
@@ -21,24 +23,36 @@ npm install p2p-passkeys
   import { StorachaFab } from 'p2p-passkeys';
 </script>
 
-<StorachaFab />
+<StorachaFab
+  {orbitdb}
+  {libp2p}
+  onAuthenticate={handleAuthenticate}
+  preferWorkerMode={true}
+/>
 ```
 
 The component handles everything internally:
 1. Click the floating Storacha button (bottom-right)
 2. "Authenticate with Passkey" → biometric prompt → DID created
-3. Paste a UCAN delegation → connected to Storacha
-4. Backup/restore your OrbitDB databases
+3. Two tabs appear: **Storacha** (backup/restore) and **P2P Passkeys** (device linking)
+4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
+5. P2P Passkeys tab shows connection status, peer info, and linked devices
 
 ## Auth Flow
 
 ```
-Authenticate with Passkey
-  → Auto-detect: Hardware Ed25519 > Hardware P-256 > Worker Ed25519
-  → DID generated (did:key:z6Mk...)
-  → Import UCAN delegation (base64/CAR)
-  → Storacha client ready
-  → Backup / Restore
+First visit:
+  Authenticate with Passkey
+    → navigator.credentials.create() (biometric)
+    → PRF seed extracted (biometric)
+    → Ed25519 DID generated (did:key:z6Mk...)
+    → Encrypted archive cached in localStorage
+
+Return visit:
+  Authenticate with Passkey
+    → Cached archive found
+    → navigator.credentials.get() (biometric)
+    → Same DID restored
 ```
 
 ### Signing Modes
@@ -49,7 +63,7 @@ Authenticate with Passkey
 | Hardware P-256 | High | TPM/Secure Enclave | Per signature |
 | Worker Ed25519 | Medium | Web worker + encrypted localStorage | On init only |
 
-The component auto-detects the best available mode and falls back gracefully.
+Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-device). The component auto-detects the best available mode when `preferWorkerMode` is not set.
 
 ## Props
 
@@ -64,6 +78,9 @@ When using `StorachaFab` or `StorachaIntegration` directly:
 | `databaseName` | string | `'restored-db'` | Name for restored database |
 | `onRestore` | function | `() => {}` | Called when restore completes |
 | `onBackup` | function | `() => {}` | Called when backup completes |
+| `onAuthenticate` | function | `() => {}` | Called after passkey auth (receives signingMode) |
+| `libp2p` | object | `null` | libp2p instance for P2P connectivity |
+| `preferWorkerMode` | boolean | `false` | Skip hardware mode, use worker Ed25519 |
 
 ## Components
 
@@ -76,11 +93,14 @@ The panel component itself. Can be embedded inline instead of as a floating pane
 ## Programmatic API
 
 ```js
-import { IdentityService, createStorachaClient, parseDelegation } from 'p2p-passkeys';
+import {
+  IdentityService, createStorachaClient, parseDelegation,
+  setupP2PStack, createLibp2pInstance, cleanupP2PStack
+} from 'p2p-passkeys';
 
-// Create identity
+// Create identity (worker mode for P2P)
 const identity = new IdentityService();
-const { mode, did, algorithm } = await identity.initialize();
+const { mode, did, algorithm } = await identity.initialize(undefined, { preferWorkerMode: true });
 
 // Get UCAN principal
 const principal = await identity.getPrincipal();
@@ -88,6 +108,11 @@ const principal = await identity.getPrincipal();
 // Connect to Storacha
 const delegation = await parseDelegation(delegationBase64);
 const client = await createStorachaClient(principal, delegation);
+
+// Start P2P stack
+const libp2p = await createLibp2pInstance();
+// After auth, upgrade to full stack with OrbitDB:
+const stack = await setupP2PStack(credential);
 ```
 
 ## Development
