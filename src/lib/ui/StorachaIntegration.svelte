@@ -8,6 +8,7 @@
 	import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
 	import { IdentityService } from '../identity/identity-service.js';
 	import { createStorachaClient, parseDelegation, storeDelegation, loadStoredDelegation, clearStoredDelegation } from '../ucan/storacha-auth.js';
+	import { openDeviceRegistry } from '../registry/device-registry.js';
 	import './fonts/storacha-fonts.css';
 
 	let {
@@ -52,6 +53,10 @@
 	let spaces = $state([]);
 	let spaceUsage = $state(null);
 
+	// Registry DB state
+	let registryDb = $state(null);
+	const REGISTRY_ADDRESS_KEY = 'p2p_passkeys_registry_address';
+
 	function resetProgress() {
 		showProgress = false;
 		progressType = '';
@@ -85,13 +90,36 @@
 		try {
 			signingMode = await identityService.initialize();
 			showMessage(`Authenticated! Mode: ${signingMode.algorithm} (${signingMode.mode})`);
+
+			// Open/create registry DB if OrbitDB is available
+			await initRegistryDb();
+
 			// Try auto-connect if delegation is stored
-			const stored = loadStoredDelegation();
+			const stored = await loadStoredDelegation(registryDb);
 			if (stored) await handleConnectWithDelegation(stored);
 		} catch (err) {
 			showMessage(`Authentication failed: ${err.message}`, 'error');
 		} finally {
 			isAuthenticating = false;
+		}
+	}
+
+	async function initRegistryDb() {
+		if (!orbitdb || !signingMode?.did) return;
+		try {
+			// Check for stored address first
+			const storedAddr = localStorage.getItem(REGISTRY_ADDRESS_KEY);
+			registryDb = await openDeviceRegistry(orbitdb, signingMode.did, storedAddr);
+
+			// Save address for future sessions
+			const addr = registryDb.address?.toString?.() || registryDb.address;
+			if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+
+			// Bind to identity service
+			await identityService.setRegistry(registryDb);
+			console.log('[ui] Registry DB initialized:', addr);
+		} catch (err) {
+			console.warn('[ui] Failed to init registry DB:', err.message);
 		}
 	}
 
@@ -115,7 +143,10 @@
 		const delegation = await parseDelegation(delegationStr);
 		const principal = await identityService.getPrincipal();
 		client = await createStorachaClient(principal, delegation);
-		storeDelegation(delegationStr);
+
+		// Store delegation in registry DB (or localStorage fallback)
+		const spaceDid = client.currentSpace()?.did?.() || '';
+		await storeDelegation(delegationStr, registryDb, spaceDid);
 
 		currentSpace = client.currentSpace();
 		isLoggedIn = true;
@@ -156,14 +187,14 @@
 		});
 	}
 
-	function handleLogout() {
+	async function handleLogout() {
 		isLoggedIn = false;
 		client = null;
 		currentSpace = null;
 		spaces = [];
 		spaceUsage = null;
 		signingMode = null;
-		clearStoredDelegation();
+		await clearStoredDelegation(registryDb);
 		if (bridge) { bridge.removeAllListeners(); bridge = null; }
 		resetProgress();
 		showMessage('Logged out successfully');
@@ -306,6 +337,19 @@
 	}
 
 	onMount(async () => {
+		// Try to reopen registry DB from stored address
+		if (orbitdb) {
+			const storedAddr = localStorage.getItem(REGISTRY_ADDRESS_KEY);
+			if (storedAddr) {
+				try {
+					registryDb = await openDeviceRegistry(orbitdb, null, storedAddr);
+					console.log('[ui] Reopened registry DB from stored address');
+				} catch (err) {
+					console.warn('[ui] Failed to reopen registry:', err.message);
+				}
+			}
+		}
+
 		// Check for stored signing mode (no biometric needed)
 		const stored = identityService.getSigningMode();
 		if (stored.mode) {

@@ -18,6 +18,36 @@ export {
 	clearStoredDelegation
 } from './ucan/storacha-auth.js';
 
+// Registry (multi-device + credential storage)
+export { MultiDeviceManager } from './registry/manager.js';
+export {
+	openDeviceRegistry,
+	registerDevice,
+	listDevices,
+	getDeviceByCredentialId,
+	getDeviceByDID,
+	grantDeviceWriteAccess,
+	revokeDeviceAccess,
+	hashCredentialId,
+	coseToJwk,
+	storeDelegationEntry,
+	listDelegations,
+	getDelegation,
+	removeDelegation,
+	storeArchiveEntry,
+	getArchiveEntry,
+	storeKeypairEntry,
+	getKeypairEntry,
+	listKeypairs
+} from './registry/device-registry.js';
+export {
+	LINK_DEVICE_PROTOCOL,
+	registerLinkDeviceHandler,
+	unregisterLinkDeviceHandler,
+	sendPairingRequest,
+	detectDeviceLabel
+} from './registry/pairing-protocol.js';
+
 // Legacy storacha backup utilities (will be replaced)
 export {
 	listSpaces,

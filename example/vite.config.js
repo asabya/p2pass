@@ -16,6 +16,9 @@ export default defineConfig({
 		}),
 		svelte()
 	],
+	worker: {
+		format: 'es'
+	},
 	server: {
 		headers: {
 			'Content-Security-Policy': "script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:;"

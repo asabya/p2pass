@@ -1,6 +1,9 @@
 /**
  * Identity service — orchestrates WebAuthn passkey auth with auto mode detection.
  * Combines hardware signer and worker Ed25519 flows.
+ *
+ * Credential data is stored in an OrbitDB registry DB when available.
+ * Falls back to in-memory storage until setRegistry() is called.
  */
 
 import {
@@ -15,13 +18,13 @@ import {
 	decryptArchive
 } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
 
-import { detectSigningMode, getStoredSigningMode } from './mode-detector.js';
-
-const STORAGE_KEYS = {
-	WEBAUTHN_CREDENTIAL: 'webauthn_credential_info',
-	ED25519_KEYPAIR: 'ed25519_keypair',
-	ED25519_ARCHIVE_ENCRYPTED: 'ed25519_archive_encrypted'
-};
+import {
+	storeKeypairEntry,
+	getKeypairEntry,
+	storeArchiveEntry,
+	getArchiveEntry,
+	listKeypairs
+} from '../registry/device-registry.js';
 
 export class IdentityService {
 	#mode = null;
@@ -30,9 +33,41 @@ export class IdentityService {
 	#signer = null;
 	#hardwareService = null;
 	#archive = null;
+	#registryDb = null;
+
+	// Hold credentials in memory until registry DB is available
+	#pendingCredentials = null;
 
 	constructor() {
 		this.#hardwareService = new WebAuthnHardwareSignerService();
+	}
+
+	/**
+	 * Bind an OrbitDB registry database for credential storage.
+	 * If pending credentials exist from a prior initialize() call, flushes them.
+	 *
+	 * @param {Object} db - OrbitDB KeyValue database (from openDeviceRegistry)
+	 */
+	async setRegistry(db) {
+		this.#registryDb = db;
+		console.log('[identity] Registry DB bound');
+
+		// Flush pending credentials to registry
+		if (this.#pendingCredentials) {
+			const { publicKeyHex, did, ciphertext, iv } = this.#pendingCredentials;
+			await storeKeypairEntry(db, did, publicKeyHex);
+			await storeArchiveEntry(db, did, ciphertext, iv);
+			console.log('[identity] Flushed pending credentials to registry DB');
+			this.#pendingCredentials = null;
+		}
+	}
+
+	/**
+	 * Get the bound registry DB (or null).
+	 * @returns {Object|null}
+	 */
+	getRegistry() {
+		return this.#registryDb;
 	}
 
 	/**
@@ -44,7 +79,7 @@ export class IdentityService {
 	 * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
 	 */
 	async initialize(authenticatorType) {
-		console.log('IdentityService: initializing...');
+		console.log('[identity] Initializing...');
 
 		// Try hardware mode first
 		try {
@@ -58,23 +93,23 @@ export class IdentityService {
 				this.#did = this.#hardwareService.getDID();
 				this.#algorithm = this.#hardwareService.getAlgorithm() || 'Ed25519';
 				this.#signer = signer;
-				console.log(`IdentityService: hardware mode (${this.#algorithm}), DID: ${this.#did}`);
+				console.log(`[identity] Hardware mode (${this.#algorithm}), DID: ${this.#did}`);
 				return this.getSigningMode();
 			}
 		} catch (err) {
-			console.warn('IdentityService: hardware mode failed, trying worker...', err.message);
+			console.warn('[identity] Hardware mode failed, trying worker...', err.message);
 		}
 
-		// Worker mode — try to restore existing keypair
+		// Worker mode — try to restore existing identity
 		const restored = await this.#tryRestoreWorkerIdentity();
 		if (restored) {
-			console.log(`IdentityService: restored worker identity, DID: ${this.#did}`);
+			console.log(`[identity] Restored worker identity, DID: ${this.#did}`);
 			return this.getSigningMode();
 		}
 
 		// No existing identity — create new worker identity
 		await this.#createWorkerIdentity(authenticatorType);
-		console.log(`IdentityService: created new worker identity, DID: ${this.#did}`);
+		console.log(`[identity] Created new worker identity, DID: ${this.#did}`);
 		return this.getSigningMode();
 	}
 
@@ -84,12 +119,12 @@ export class IdentityService {
 	 * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
 	 */
 	async createNewIdentity(authenticatorType) {
-		this.#clearWorkerStorage();
 		this.#hardwareService.clear();
 		this.#mode = null;
 		this.#did = null;
 		this.#signer = null;
 		this.#archive = null;
+		this.#pendingCredentials = null;
 
 		return this.initialize(authenticatorType);
 	}
@@ -135,50 +170,67 @@ export class IdentityService {
 	}
 
 	/**
-	 * Try to restore a worker identity from localStorage.
+	 * Try to restore a worker identity.
+	 * Checks registry DB first, falls back to in-memory pending credentials.
 	 * Requires WebAuthn re-auth to get PRF seed for archive decryption.
 	 */
 	async #tryRestoreWorkerIdentity() {
 		try {
-			const keypairStr = localStorage.getItem(STORAGE_KEYS.ED25519_KEYPAIR);
-			const archiveStr = localStorage.getItem(STORAGE_KEYS.ED25519_ARCHIVE_ENCRYPTED);
+			// Try registry DB first
+			if (this.#registryDb) {
+				const keypairs = await listKeypairs(this.#registryDb);
+				if (keypairs.length > 0) {
+					const keypair = keypairs[0]; // use first keypair
+					const archiveEntry = await getArchiveEntry(this.#registryDb, keypair.did);
 
-			if (!keypairStr || !archiveStr) return false;
-
-			const keypair = JSON.parse(keypairStr);
-			const encryptedArchive = JSON.parse(archiveStr);
-
-			// Need PRF seed to decrypt — requires WebAuthn re-auth
-			const credential = loadWebAuthnCredentialSafe();
-			if (!credential) {
-				console.warn('IdentityService: stored keypair but no WebAuthn credential');
-				return false;
+					if (archiveEntry) {
+						return await this.#restoreFromEncryptedArchive(keypair, archiveEntry);
+					}
+				}
 			}
 
-			console.log('IdentityService: restoring worker identity (biometric required)...');
-			const { seed: prfSeed } = await extractPrfSeedFromCredential(credential);
-
-			// Init worker keystore with PRF
-			await initEd25519KeystoreWithPrfSeed(prfSeed);
-
-			// Decrypt archive
-			const ciphertext = hexToBytes(encryptedArchive.ciphertext);
-			const iv = hexToBytes(encryptedArchive.iv);
-			const archive = await decryptArchive(ciphertext, iv);
-
-			// Load archive into worker
-			await loadWorkerEd25519Archive(archive);
-
-			this.#mode = 'worker';
-			this.#did = keypair.did;
-			this.#algorithm = 'Ed25519';
-			this.#archive = archive;
-
-			return true;
+			// No registry — nothing to restore
+			return false;
 		} catch (err) {
-			console.warn('IdentityService: failed to restore worker identity:', err.message);
+			console.warn('[identity] Failed to restore worker identity:', err.message);
 			return false;
 		}
+	}
+
+	/**
+	 * Restore worker identity from encrypted archive data.
+	 * @param {Object} keypair - { did, publicKey }
+	 * @param {Object} archiveEntry - { ciphertext, iv }
+	 * @returns {Promise<boolean>}
+	 */
+	async #restoreFromEncryptedArchive(keypair, archiveEntry) {
+		// Need PRF seed to decrypt — requires WebAuthn re-auth
+		const credential = loadWebAuthnCredentialSafe();
+		if (!credential) {
+			console.warn('[identity] Stored keypair but no WebAuthn credential for PRF');
+			return false;
+		}
+
+		console.log('[identity] Restoring worker identity (biometric required)...');
+		const { seed: prfSeed } = await extractPrfSeedFromCredential(credential);
+
+		// Init worker keystore with PRF
+		await initEd25519KeystoreWithPrfSeed(prfSeed);
+
+		// Decrypt archive
+		const ciphertext = hexToBytes(archiveEntry.ciphertext);
+		const iv = hexToBytes(archiveEntry.iv);
+		const archive = await decryptArchive(ciphertext, iv);
+
+		// Load archive into worker
+		await loadWorkerEd25519Archive(archive);
+
+		this.#mode = 'worker';
+		this.#did = keypair.did;
+		this.#algorithm = 'Ed25519';
+		this.#archive = archive;
+
+		return true;
 	}
 
 	/**
@@ -200,20 +252,27 @@ export class IdentityService {
 		// Encrypt archive for storage
 		const { ciphertext, iv } = await encryptArchive(archive);
 
-		// Store keypair info (no private key)
-		localStorage.setItem(STORAGE_KEYS.ED25519_KEYPAIR, JSON.stringify({
-			publicKey: bytesToHex(publicKey),
-			privateKey: '',
-			did
-		}));
+		const publicKeyHex = bytesToHex(publicKey);
+		const ciphertextHex = bytesToHex(ciphertext);
+		const ivHex = bytesToHex(iv);
 
-		// Store encrypted archive
-		localStorage.setItem(STORAGE_KEYS.ED25519_ARCHIVE_ENCRYPTED, JSON.stringify({
-			ciphertext: bytesToHex(ciphertext),
-			iv: bytesToHex(iv)
-		}));
+		// Store in registry DB if available, otherwise hold in memory
+		if (this.#registryDb) {
+			await storeKeypairEntry(this.#registryDb, did, publicKeyHex);
+			await storeArchiveEntry(this.#registryDb, did, ciphertextHex, ivHex);
+			console.log('[identity] Credentials stored in registry DB');
+		} else {
+			this.#pendingCredentials = {
+				publicKeyHex,
+				did,
+				ciphertext: ciphertextHex,
+				iv: ivHex
+			};
+			console.log('[identity] Credentials held in memory (registry not yet bound)');
+		}
 
-		// Store WebAuthn credential (without PRF seed)
+		// Store WebAuthn credential (without PRF seed) — needed for PRF re-auth
+		// This stays in the authenticator/browser, not in our storage
 		storeWebAuthnCredentialSafe(credential);
 
 		this.#mode = 'worker';
@@ -263,12 +322,6 @@ export class IdentityService {
 		credential._rawCredentialId = new Uint8Array(credential.rawId);
 
 		return credential;
-	}
-
-	#clearWorkerStorage() {
-		Object.values(STORAGE_KEYS).forEach(key => {
-			try { localStorage.removeItem(key); } catch { /* ignore */ }
-		});
 	}
 }
 

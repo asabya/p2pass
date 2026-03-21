@@ -6,22 +6,23 @@
 import {
 	WebAuthnHardwareSignerService,
 	checkEd25519Support,
-	getStoredWebAuthnHardwareSignerInfo,
-	loadWebAuthnCredentialSafe
+	getStoredWebAuthnHardwareSignerInfo
 } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
+
+import { listKeypairs } from '../registry/device-registry.js';
 
 /**
  * Detect the best available signing mode.
  * Priority: hardware Ed25519 > hardware P-256 > stored worker keypair > null (needs setup)
  *
- * @param {{ authenticatorType?: 'platform'|'cross-platform', forceWorker?: boolean }} options
+ * @param {{ authenticatorType?: 'platform'|'cross-platform', forceWorker?: boolean, registryDb?: Object }} options
  * @returns {Promise<{ mode: 'hardware'|'worker'|null, signer?: any, did?: string, algorithm?: string }>}
  */
 export async function detectSigningMode(options = {}) {
-	const { forceWorker = false } = options;
+	const { forceWorker = false, registryDb } = options;
 
 	// Check for stored mode first (fast path, no biometric)
-	const stored = getStoredSigningMode();
+	const stored = await getStoredSigningMode(registryDb);
 	if (stored.mode) {
 		console.log(`Stored signing mode found: ${stored.mode} (${stored.algorithm})`);
 		return stored;
@@ -46,9 +47,12 @@ export async function detectSigningMode(options = {}) {
 
 /**
  * Get stored signing mode info without requiring biometric auth.
- * @returns {{ mode: 'hardware'|'worker'|null, did?: string, algorithm?: string }}
+ * Checks registry DB first if provided, then falls back to hardware signer storage.
+ *
+ * @param {Object} [registryDb] - OrbitDB registry database
+ * @returns {Promise<{ mode: 'hardware'|'worker'|null, did?: string, algorithm?: string }>}
  */
-export function getStoredSigningMode() {
+export async function getStoredSigningMode(registryDb) {
 	// Check hardware signer storage
 	try {
 		const hardwareInfo = getStoredWebAuthnHardwareSignerInfo();
@@ -63,21 +67,20 @@ export function getStoredSigningMode() {
 		// No stored hardware signer
 	}
 
-	// Check worker keypair storage
-	try {
-		const keypairStr = localStorage.getItem('ed25519_keypair');
-		if (keypairStr) {
-			const keypair = JSON.parse(keypairStr);
-			if (keypair.did) {
+	// Check registry DB for worker keypairs
+	if (registryDb) {
+		try {
+			const keypairs = await listKeypairs(registryDb);
+			if (keypairs.length > 0 && keypairs[0].did) {
 				return {
 					mode: 'worker',
-					did: keypair.did,
+					did: keypairs[0].did,
 					algorithm: 'Ed25519'
 				};
 			}
+		} catch {
+			// Registry read failed
 		}
-	} catch {
-		// No stored worker keypair
 	}
 
 	return { mode: null };
