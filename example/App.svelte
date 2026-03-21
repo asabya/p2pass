@@ -1,11 +1,14 @@
 <script>
 	import { onMount } from 'svelte';
-	import { StorachaFab } from '../src/lib';
+	import { StorachaFab, setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2p-passkeys';
+	import { loadWebAuthnCredentialSafe } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
 
 	let orbitdb = $state(null);
+	let libp2p = $state(null);
 	let database = $state(null);
 	let isInitialized = $state(true);
 	let entryCount = $state(0);
+	let p2pStack = $state(null);
 
 	let logs = $state([]);
 	let logContainer = $state(null);
@@ -33,6 +36,35 @@
 		}
 	}
 
+	async function initP2P() {
+		try {
+			const credential = loadWebAuthnCredentialSafe();
+			if (credential && !p2pStack) {
+				// Full P2P stack with OrbitDB (credential available)
+				if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }
+				console.log('[app] Starting full P2P stack...');
+				p2pStack = await setupP2PStack(credential);
+				orbitdb = p2pStack.orbitdb;
+				libp2p = p2pStack.libp2p;
+				console.log('[app] Full P2P stack ready!');
+				return;
+			}
+			if (!libp2p) {
+				// libp2p only — no credential yet, but P2P tab can show connected
+				console.log('[app] No credential yet, starting libp2p only...');
+				libp2p = await createLibp2pInstance();
+				console.log('[app] libp2p started:', libp2p.peerId.toString());
+			}
+		} catch (err) {
+			console.error('[app] P2P init failed:', err.message);
+		}
+	}
+
+	async function handleAuthenticate(signingMode) {
+		console.log('[app] User authenticated:', signingMode.did);
+		await initP2P();
+	}
+
 	onMount(() => {
 		const orig = {
 			log: console.log,
@@ -53,10 +85,15 @@
 		window.addEventListener('error', onError);
 		window.addEventListener('unhandledrejection', onUnhandled);
 
+		// Initialize P2P stack
+		initP2P();
+
 		return () => {
 			Object.assign(console, orig);
 			window.removeEventListener('error', onError);
 			window.removeEventListener('unhandledrejection', onUnhandled);
+			if (p2pStack) cleanupP2PStack(p2pStack);
+		else if (libp2p) libp2p.stop();
 		};
 	});
 
@@ -111,4 +148,7 @@
 	databaseName="my-database"
 	onRestore={handleRestore}
 	onBackup={handleBackup}
+	onAuthenticate={handleAuthenticate}
+	{libp2p}
+	preferWorkerMode={true}
 />

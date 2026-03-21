@@ -70,7 +70,7 @@ export async function openDeviceRegistry(orbitdb, ownerIdentityId, address = nul
   return await orbitdb.open('multi-device-registry', {
     type: 'keyvalue',
     sync: true,
-    AccessController: OrbitDBAccessController({ write: [ownerIdentityId] }),
+    AccessController: OrbitDBAccessController({ write: [orbitdb.identity.id, ownerIdentityId] }),
   });
 }
 

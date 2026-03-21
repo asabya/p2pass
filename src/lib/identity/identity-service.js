@@ -78,26 +78,28 @@ export class IdentityService {
 	 * @param {'platform'|'cross-platform'} [authenticatorType]
 	 * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
 	 */
-	async initialize(authenticatorType) {
-		console.log('[identity] Initializing...');
+	async initialize(authenticatorType, { preferWorkerMode = false } = {}) {
+		console.log('[identity] Initializing...', preferWorkerMode ? '(worker mode preferred)' : '');
 
-		// Try hardware mode first
-		try {
-			const signer = await this.#hardwareService.initialize({
-				authenticatorType,
-				preferEd25519: true
-			});
+		// Try hardware mode first (unless worker mode is preferred)
+		if (!preferWorkerMode) {
+			try {
+				const signer = await this.#hardwareService.initialize({
+					authenticatorType,
+					preferEd25519: true
+				});
 
-			if (signer) {
-				this.#mode = 'hardware';
-				this.#did = this.#hardwareService.getDID();
-				this.#algorithm = this.#hardwareService.getAlgorithm() || 'Ed25519';
-				this.#signer = signer;
-				console.log(`[identity] Hardware mode (${this.#algorithm}), DID: ${this.#did}`);
-				return this.getSigningMode();
+				if (signer) {
+					this.#mode = 'hardware';
+					this.#did = this.#hardwareService.getDID();
+					this.#algorithm = this.#hardwareService.getAlgorithm() || 'Ed25519';
+					this.#signer = signer;
+					console.log(`[identity] Hardware mode (${this.#algorithm}), DID: ${this.#did}`);
+					return this.getSigningMode();
+				}
+			} catch (err) {
+				console.warn('[identity] Hardware mode failed, trying worker...', err.message);
 			}
-		} catch (err) {
-			console.warn('[identity] Hardware mode failed, trying worker...', err.message);
 		}
 
 		// Worker mode — try to restore existing identity
@@ -318,8 +320,8 @@ export class IdentityService {
 		const credential = await navigator.credentials.create(createOptions);
 
 		// Attach metadata for storage
-		credential._prfInput = prfSalt;
-		credential._rawCredentialId = new Uint8Array(credential.rawId);
+		credential.prfInput = prfSalt;
+		credential.rawCredentialId = new Uint8Array(credential.rawId);
 
 		return credential;
 	}

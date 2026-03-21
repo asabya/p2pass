@@ -48,6 +48,14 @@ export {
 	detectDeviceLabel
 } from './registry/pairing-protocol.js';
 
+// P2P stack setup
+export {
+	setupP2PStack,
+	createLibp2pInstance,
+	createHeliaInstance,
+	cleanupP2PStack
+} from './p2p/setup.js';
+
 // Legacy storacha backup utilities (will be replaced)
 export {
 	listSpaces,

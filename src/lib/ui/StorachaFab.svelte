@@ -8,7 +8,10 @@
 		entryCount = 0,
 		databaseName = 'restored-db',
 		onRestore = () => {},
-		onBackup = () => {}
+		onBackup = () => {},
+		onAuthenticate = () => {},
+		libp2p = null,
+		preferWorkerMode = false
 	} = $props();
 
 	let showPanel = $state(false);
@@ -97,6 +100,9 @@
 			{databaseName}
 			{onRestore}
 			{onBackup}
+			{onAuthenticate}
+			{libp2p}
+			{preferWorkerMode}
 		/>
 	</div>
 {/if}

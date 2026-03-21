@@ -16,6 +16,14 @@ export default defineConfig({
 		}),
 		svelte()
 	],
+	resolve: {
+		alias: {
+			'p2p-passkeys': path.resolve(__dirname, '../dist')
+		}
+	},
+	optimizeDeps: {
+		exclude: ['@le-space/orbitdb-identity-provider-webauthn-did']
+	},
 	worker: {
 		format: 'es'
 	},
