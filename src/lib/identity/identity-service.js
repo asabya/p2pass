@@ -26,6 +26,8 @@ import {
 	listKeypairs
 } from '../registry/device-registry.js';
 
+const ARCHIVE_CACHE_KEY = 'p2p_passkeys_worker_archive';
+
 export class IdentityService {
 	#mode = null;
 	#did = null;
@@ -191,7 +193,19 @@ export class IdentityService {
 				}
 			}
 
-			// No registry — nothing to restore
+			// Fallback: try localStorage cache (bootstrap before registry is available)
+			const cached = this.#loadCachedArchive();
+			if (cached) {
+				const credential = loadWebAuthnCredentialSafe();
+				if (credential) {
+					console.log('[identity] Found cached archive, attempting restore via biometric...');
+					return await this.#restoreFromEncryptedArchive(
+						{ did: cached.did, publicKey: cached.publicKeyHex },
+						{ ciphertext: cached.ciphertext, iv: cached.iv }
+					);
+				}
+			}
+
 			return false;
 		} catch (err) {
 			console.warn('[identity] Failed to restore worker identity:', err.message);
@@ -235,6 +249,16 @@ export class IdentityService {
 		return true;
 	}
 
+	#loadCachedArchive() {
+		try {
+			const raw = localStorage.getItem(ARCHIVE_CACHE_KEY);
+			if (!raw) return null;
+			return JSON.parse(raw);
+		} catch {
+			return null;
+		}
+	}
+
 	/**
 	 * Create a new worker-mode Ed25519 identity.
 	 */
@@ -274,8 +298,20 @@ export class IdentityService {
 		}
 
 		// Store WebAuthn credential (without PRF seed) — needed for PRF re-auth
-		// This stays in the authenticator/browser, not in our storage
 		storeWebAuthnCredentialSafe(credential);
+
+		// Cache encrypted archive in localStorage for bootstrap restore
+		// (registry DB not available on return visits before auth)
+		try {
+			localStorage.setItem(ARCHIVE_CACHE_KEY, JSON.stringify({
+				did,
+				publicKeyHex,
+				ciphertext: ciphertextHex,
+				iv: ivHex
+			}));
+		} catch (e) {
+			console.warn('[identity] Failed to cache archive in localStorage:', e.message);
+		}
 
 		this.#mode = 'worker';
 		this.#did = did;

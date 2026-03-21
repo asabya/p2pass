@@ -8,8 +8,10 @@
 	import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
 	import { IdentityService } from '../identity/identity-service.js';
 	import { createStorachaClient, parseDelegation, storeDelegation, loadStoredDelegation, clearStoredDelegation } from '../ucan/storacha-auth.js';
-	import { openDeviceRegistry, listDevices as listRegistryDevices } from '../registry/device-registry.js';
+	import { openDeviceRegistry, registerDevice, listDevices as listRegistryDevices } from '../registry/device-registry.js';
 	import { MultiDeviceManager } from '../registry/manager.js';
+	import { detectDeviceLabel } from '../registry/pairing-protocol.js';
+	import { loadWebAuthnCredentialSafe } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
 	import './fonts/storacha-fonts.css';
 
 	let {
@@ -147,7 +149,9 @@
 	async function initDeviceManager() {
 		if (!libp2p || !registryDb || !signingMode?.did) return;
 		try {
+			const credential = loadWebAuthnCredentialSafe();
 			deviceManager = await MultiDeviceManager.createFromExisting({
+				credential,
 				orbitdb,
 				libp2p,
 				identity: { id: signingMode.did },
@@ -161,6 +165,21 @@
 			});
 			const dbAddr = registryDb.address?.toString?.() || registryDb.address;
 			if (dbAddr) await deviceManager.openExistingDb(dbAddr);
+
+			// Self-register this device if not already in registry
+			if (credential) {
+				await registerDevice(registryDb, {
+					credential_id: credential.credentialId || credential.id || libp2p.peerId.toString(),
+					public_key: credential.publicKey?.x && credential.publicKey?.y
+						? { kty: 'EC', crv: 'P-256', x: credential.publicKey.x, y: credential.publicKey.y }
+						: null,
+					device_label: detectDeviceLabel(),
+					created_at: Date.now(),
+					status: 'active',
+					ed25519_did: signingMode.did
+				});
+			}
+
 			devices = await deviceManager.listDevices();
 			peerInfo = deviceManager.getPeerInfo();
 			console.log('[ui] MultiDeviceManager initialized');
@@ -754,6 +773,69 @@
 						</div>
 					</div>
 				{/if}
+
+				{#if signingMode}
+				<!-- Tab Navigation (visible after authentication) -->
+				<div style="border-radius: 0.5rem; background: rgba(233, 19, 21, 0.06); padding: 0.25rem; display: flex; gap: 0.25rem;">
+					<button
+						onclick={() => handleTabSwitch('storacha')}
+						style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab === 'storacha' ? 'linear-gradient(135deg, #E91315, #FFC83F)' : 'transparent'}; color: {activeTab === 'storacha' ? '#fff' : '#6B7280'}; box-shadow: {activeTab === 'storacha' ? '0 2px 8px rgba(233, 19, 21, 0.3)' : 'none'};"
+					>
+						Storacha
+					</button>
+					<button
+						onclick={() => handleTabSwitch('passkeys')}
+						style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab === 'passkeys' ? 'linear-gradient(135deg, #E91315, #FFC83F)' : 'transparent'}; color: {activeTab === 'passkeys' ? '#fff' : '#6B7280'}; box-shadow: {activeTab === 'passkeys' ? '0 2px 8px rgba(233, 19, 21, 0.3)' : 'none'};"
+					>
+						P2P Passkeys
+					</button>
+				</div>
+
+				{#if activeTab === 'passkeys'}
+				<div style="display: flex; flex-direction: column; gap: 0.75rem;">
+					<!-- Connection Status + Copy -->
+					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to right, #ffffff, #FFE4AE); padding: 0.625rem 0.75rem;">
+						<div style="display: flex; align-items: center; justify-content: space-between;">
+							<div style="display: flex; align-items: center; gap: 0.5rem;">
+								<div style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background: {libp2p ? '#10b981' : '#9ca3af'}; box-shadow: {libp2p ? '0 0 0 3px rgba(16, 185, 129, 0.2)' : 'none'}; animation: {libp2p ? 'pulse 2s infinite' : 'none'};"></div>
+								<span style="font-size: 0.75rem; font-weight: 600; color: {libp2p ? '#064e3b' : '#6B7280'}; font-family: 'Epilogue', sans-serif;">
+									{libp2p ? 'P2P Connected' : 'P2P Offline'}
+								</span>
+							</div>
+							<div style="display: flex; align-items: center; gap: 0.375rem;">
+								{#if libp2p}
+									<code style="font-size: 0.6rem; color: #E91315; font-family: 'DM Mono', monospace; background: rgba(233, 19, 21, 0.06); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">
+										{libp2p.peerId.toString().slice(0, 8)}...{libp2p.peerId.toString().slice(-4)}
+									</code>
+									<button onclick={handleCopyPeerInfo} title="Copy peer info to clipboard" style="display: flex; align-items: center; justify-content: center; height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border: none; background: transparent; cursor: pointer; color: #E91315; padding: 0; transition: all 150ms;">
+										<svg style="height: 0.7rem; width: 0.7rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+										</svg>
+									</button>
+								{/if}
+							</div>
+						</div>
+					</div>
+
+					<!-- Linked Devices List -->
+					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
+						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+							<div style="font-size: 0.65rem; font-weight: 700; color: #E91315; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">
+								Linked Devices
+							</div>
+							<div style="display: flex; align-items: center; gap: 0.25rem; background: #FFC83F; padding: 0.125rem 0.5rem; border-radius: 9999px;">
+								<span style="font-size: 0.7rem; font-weight: 700; color: #111827; font-family: 'DM Mono', monospace;">{devices.length}</span>
+							</div>
+						</div>
+						{#if devices.length === 0}
+							<div style="text-align: center; padding: 1rem; font-size: 0.8rem; color: #9ca3af; font-family: 'DM Sans', sans-serif;">
+								No devices linked yet
+							</div>
+						{/if}
+					</div>
+				</div>
+				{/if}
+				{/if}
 			</div>
 		{:else}
 			<!-- Logged In Section -->
@@ -943,28 +1025,33 @@
 
 				{#if activeTab === 'passkeys'}
 				<div style="display: flex; flex-direction: column; gap: 0.75rem;">
-					<!-- Connection Status -->
-					<div style="border-radius: 0.375rem; border: 1px solid rgba(233, 19, 21, 0.3); background: linear-gradient(to right, #ffffff, #EFE3F3); padding: 0.75rem;">
+					<!-- Connection Status + Copy -->
+					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to right, #ffffff, #FFE4AE); padding: 0.625rem 0.75rem;">
 						<div style="display: flex; align-items: center; justify-content: space-between;">
 							<div style="display: flex; align-items: center; gap: 0.5rem;">
 								<div style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background: {libp2p ? '#10b981' : '#9ca3af'}; box-shadow: {libp2p ? '0 0 0 3px rgba(16, 185, 129, 0.2)' : 'none'}; animation: {libp2p ? 'pulse 2s infinite' : 'none'};"></div>
-								<span style="font-size: 0.8rem; font-weight: 600; color: {libp2p ? '#064e3b' : '#6B7280'}; font-family: 'Epilogue', sans-serif;">
+								<span style="font-size: 0.75rem; font-weight: 600; color: {libp2p ? '#064e3b' : '#6B7280'}; font-family: 'Epilogue', sans-serif;">
 									{libp2p ? 'P2P Connected' : 'P2P Offline'}
 								</span>
 							</div>
-							{#if libp2p}
-								<code style="font-size: 0.65rem; color: #0176CE; font-family: 'DM Mono', monospace; background: rgba(1, 118, 206, 0.08); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">
-									{libp2p.peerId.toString().slice(0, 8)}...{libp2p.peerId.toString().slice(-4)}
-								</code>
-							{/if}
+							<div style="display: flex; align-items: center; gap: 0.375rem;">
+								{#if libp2p}
+									<code style="font-size: 0.6rem; color: #E91315; font-family: 'DM Mono', monospace; background: rgba(233, 19, 21, 0.06); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">
+										{libp2p.peerId.toString().slice(0, 8)}...{libp2p.peerId.toString().slice(-4)}
+									</code>
+									<button onclick={handleCopyPeerInfo} title="Copy peer info to clipboard" style="display: flex; align-items: center; justify-content: center; height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border: none; background: transparent; cursor: pointer; color: #E91315; padding: 0; transition: all 150ms;">
+										<svg style="height: 0.7rem; width: 0.7rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+										</svg>
+									</button>
+								{/if}
+							</div>
 						</div>
 					</div>
 
 					{#if !libp2p}
-						<!-- No libp2p fallback -->
-						<div style="border-radius: 0.375rem; border: 1px dashed rgba(233, 19, 21, 0.3); background: rgba(233, 19, 21, 0.03); padding: 1.25rem; text-align: center;">
-							<div style="font-size: 1.5rem; margin-bottom: 0.5rem;">&#x1F517;</div>
-							<div style="font-size: 0.8rem; font-weight: 600; color: #374151; font-family: 'Epilogue', sans-serif; margin-bottom: 0.25rem;">
+						<div style="border-radius: 0.375rem; border: 1px dashed #E91315; background: rgba(233, 19, 21, 0.03); padding: 1.25rem; text-align: center;">
+							<div style="font-size: 0.8rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; margin-bottom: 0.25rem;">
 								P2P Networking Not Available
 							</div>
 							<div style="font-size: 0.75rem; color: #6B7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
@@ -972,26 +1059,9 @@
 							</div>
 						</div>
 					{:else}
-						<!-- Copy Peer Info -->
-						<div style="border-radius: 0.375rem; border: 1px solid rgba(1, 118, 206, 0.3); background: linear-gradient(to right, #BDE0FF, #ffffff); padding: 0.75rem;">
-							<div style="font-size: 0.65rem; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif; margin-bottom: 0.5rem;">
-								Your Peer Info
-							</div>
-							<button
-								class="storacha-btn-restore"
-								onclick={handleCopyPeerInfo}
-								style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #0176CE; padding: 0.5rem 1rem; color: #ffffff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; font-size: 0.8rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); box-sizing: border-box;"
-							>
-								<svg style="height: 0.875rem; width: 0.875rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-								</svg>
-								Copy Peer Info to Clipboard
-							</button>
-						</div>
-
 						<!-- Link Device -->
 						<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
-							<div style="font-size: 0.65rem; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif; margin-bottom: 0.5rem;">
+							<div style="font-size: 0.65rem; font-weight: 700; color: #E91315; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif; margin-bottom: 0.5rem;">
 								Link Another Device
 							</div>
 							<div style="display: flex; flex-direction: column; gap: 0.5rem;">
@@ -1003,10 +1073,9 @@
 									style="width: 100%; resize: none; border-radius: 0.375rem; border: 1px solid #E91315; background: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
 								></textarea>
 								<button
-									class="storacha-btn-primary"
 									onclick={handleLinkDevice}
 									disabled={isLinking || !linkInput.trim()}
-									style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; font-size: 0.8rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); opacity: {isLinking || !linkInput.trim() ? '0.5' : '1'}; box-sizing: border-box;"
+									style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); opacity: {isLinking || !linkInput.trim() ? '0.5' : '1'}; box-sizing: border-box;"
 								>
 									{#if isLinking}
 										<Loader2 style="height: 0.875rem; width: 0.875rem; animation: spin 1s linear infinite;" />
@@ -1026,13 +1095,13 @@
 					{/if}
 
 					<!-- Linked Devices List -->
-					<div style="border-radius: 0.375rem; border: 1px solid rgba(233, 19, 21, 0.3); background: linear-gradient(to bottom right, #ffffff, #EFE3F3); padding: 0.75rem;">
+					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
 						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-							<div style="font-size: 0.65rem; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">
+							<div style="font-size: 0.65rem; font-weight: 700; color: #E91315; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;">
 								Linked Devices
 							</div>
-							<div style="display: flex; align-items: center; gap: 0.25rem; background: rgba(233, 19, 21, 0.08); padding: 0.125rem 0.5rem; border-radius: 9999px;">
-								<span style="font-size: 0.7rem; font-weight: 700; color: #E91315; font-family: 'DM Mono', monospace;">{devices.length}</span>
+							<div style="display: flex; align-items: center; gap: 0.25rem; background: #FFC83F; padding: 0.125rem 0.5rem; border-radius: 9999px;">
+								<span style="font-size: 0.7rem; font-weight: 700; color: #111827; font-family: 'DM Mono', monospace;">{devices.length}</span>
 							</div>
 						</div>
 
