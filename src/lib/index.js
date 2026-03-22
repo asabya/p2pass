@@ -62,3 +62,23 @@ export {
 	getSpaceUsage,
 	listStorachaFiles
 } from './ui/storacha-backup.js';
+
+// Recovery (IPNS manifest)
+export {
+	deriveIPNSKeyPair,
+	computeDeterministicPrfSalt,
+	recoverPrfSeed
+} from './recovery/ipns-key.js';
+
+export {
+	createManifest,
+	publishManifest,
+	resolveManifest,
+	resolveManifestByName
+} from './recovery/manifest.js';
+
+// Backup (registry)
+export {
+	backupRegistryDb,
+	restoreRegistryDb
+} from './backup/registry-backup.js';

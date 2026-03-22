@@ -8,7 +8,6 @@
 
 import {
 	WebAuthnHardwareSignerService,
-	storeWebAuthnCredentialSafe,
 	loadWebAuthnCredentialSafe,
 	extractPrfSeedFromCredential,
 	initEd25519KeystoreWithPrfSeed,
@@ -26,6 +25,8 @@ import {
 	listKeypairs
 } from '../registry/device-registry.js';
 
+import { computeDeterministicPrfSalt, deriveIPNSKeyPair, recoverPrfSeed } from '../recovery/ipns-key.js';
+
 const ARCHIVE_CACHE_KEY = 'p2p_passkeys_worker_archive';
 
 export class IdentityService {
@@ -39,6 +40,8 @@ export class IdentityService {
 
 	// Hold credentials in memory until registry DB is available
 	#pendingCredentials = null;
+	#prfSeed = null;
+	#ipnsKeyPair = null;
 
 	constructor() {
 		this.#hardwareService = new WebAuthnHardwareSignerService();
@@ -134,6 +137,55 @@ export class IdentityService {
 	}
 
 	/**
+	 * Recovery entry point — uses discoverable credentials to derive IPNS key.
+	 * Does NOT restore the DID — caller must resolve manifest and restore registry first.
+	 * @returns {Promise<{ prfSeed: Uint8Array, ipnsKeyPair: Object, rawCredentialId: Uint8Array }>}
+	 */
+	async initializeFromRecovery() {
+		console.log('[identity] Starting recovery via discoverable credential...');
+		const { prfSeed, rawCredentialId, credential } = await recoverPrfSeed();
+
+		this.#prfSeed = prfSeed;
+		this.#ipnsKeyPair = await deriveIPNSKeyPair(prfSeed);
+
+		console.log('[identity] Recovery: IPNS keypair derived');
+		return { prfSeed, ipnsKeyPair: this.#ipnsKeyPair, rawCredentialId };
+	}
+
+	/**
+	 * Restore DID from an encrypted archive entry (from registry DB after recovery).
+	 * Uses the PRF seed stored during initializeFromRecovery().
+	 * @param {Object} archiveEntry - { ciphertext: string (hex), iv: string (hex) }
+	 * @param {string} did - The owner DID from the manifest
+	 * @returns {Promise<void>}
+	 */
+	async restoreFromManifest(archiveEntry, did) {
+		if (!this.#prfSeed) {
+			throw new Error('No PRF seed available. Call initializeFromRecovery() first.');
+		}
+
+		console.log('[identity] Restoring DID from manifest + registry archive...');
+
+		// Init worker keystore with PRF
+		await initEd25519KeystoreWithPrfSeed(this.#prfSeed);
+
+		// Decrypt archive
+		const ciphertext = hexToBytes(archiveEntry.ciphertext);
+		const iv = hexToBytes(archiveEntry.iv);
+		const archive = await decryptArchive(ciphertext, iv);
+
+		// Load archive into worker
+		await loadWorkerEd25519Archive(archive);
+
+		this.#mode = 'worker';
+		this.#did = did;
+		this.#algorithm = 'Ed25519';
+		this.#archive = archive;
+
+		console.log(`[identity] DID restored from manifest: ${did}`);
+	}
+
+	/**
 	 * Get current signing mode info.
 	 * @returns {{ mode: string|null, did: string|null, algorithm: string|null, secure: boolean }}
 	 */
@@ -171,6 +223,22 @@ export class IdentityService {
 	 */
 	isInitialized() {
 		return this.#mode !== null && this.#did !== null;
+	}
+
+	/**
+	 * Get the derived IPNS keypair (available after initialize or recovery).
+	 * @returns {{ privateKey: Object, publicKey: Object }|null}
+	 */
+	getIPNSKeyPair() {
+		return this.#ipnsKeyPair;
+	}
+
+	/**
+	 * Get the stored PRF seed (available after initialize or recovery).
+	 * @returns {Uint8Array|null}
+	 */
+	getPrfSeed() {
+		return this.#prfSeed;
 	}
 
 	/**
@@ -230,6 +298,15 @@ export class IdentityService {
 		console.log('[identity] Restoring worker identity (biometric required)...');
 		const { seed: prfSeed } = await extractPrfSeedFromCredential(credential);
 
+		// Store PRF seed and derive IPNS keypair
+		this.#prfSeed = prfSeed;
+		try {
+			this.#ipnsKeyPair = await deriveIPNSKeyPair(prfSeed);
+			console.log('[identity] IPNS keypair derived (restore)');
+		} catch (err) {
+			console.warn('[identity] Failed to derive IPNS keypair:', err.message);
+		}
+
 		// Init worker keystore with PRF
 		await initEd25519KeystoreWithPrfSeed(prfSeed);
 
@@ -269,6 +346,15 @@ export class IdentityService {
 		// Extract PRF seed
 		const { seed: prfSeed } = await extractPrfSeedFromCredential(credential);
 
+		// Store PRF seed and derive IPNS keypair
+		this.#prfSeed = prfSeed;
+		try {
+			this.#ipnsKeyPair = await deriveIPNSKeyPair(prfSeed);
+			console.log('[identity] IPNS keypair derived');
+		} catch (err) {
+			console.warn('[identity] Failed to derive IPNS keypair:', err.message);
+		}
+
 		// Init worker with PRF seed
 		await initEd25519KeystoreWithPrfSeed(prfSeed);
 
@@ -297,22 +383,6 @@ export class IdentityService {
 			console.log('[identity] Credentials held in memory (registry not yet bound)');
 		}
 
-		// Store WebAuthn credential (without PRF seed) — needed for PRF re-auth
-		storeWebAuthnCredentialSafe(credential);
-
-		// Cache encrypted archive in localStorage for bootstrap restore
-		// (registry DB not available on return visits before auth)
-		try {
-			localStorage.setItem(ARCHIVE_CACHE_KEY, JSON.stringify({
-				did,
-				publicKeyHex,
-				ciphertext: ciphertextHex,
-				iv: ivHex
-			}));
-		} catch (e) {
-			console.warn('[identity] Failed to cache archive in localStorage:', e.message);
-		}
-
 		this.#mode = 'worker';
 		this.#did = did;
 		this.#algorithm = 'Ed25519';
@@ -324,7 +394,7 @@ export class IdentityService {
 	 */
 	async #createWebAuthnCredential(authenticatorType) {
 		const challenge = crypto.getRandomValues(new Uint8Array(32));
-		const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+		const prfSalt = await computeDeterministicPrfSalt();
 
 		const createOptions = {
 			publicKey: {
