@@ -8,7 +8,10 @@
 	import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
 	import { IdentityService } from '../identity/identity-service.js';
 	import { createStorachaClient, parseDelegation, storeDelegation, loadStoredDelegation, clearStoredDelegation } from '../ucan/storacha-auth.js';
-	import { openDeviceRegistry, registerDevice, listDevices as listRegistryDevices } from '../registry/device-registry.js';
+	import { openDeviceRegistry, registerDevice, listDevices as listRegistryDevices, getArchiveEntry, listKeypairs } from '../registry/device-registry.js';
+	import { deriveIPNSKeyPair } from '../recovery/ipns-key.js';
+	import { createManifest, publishManifest, resolveManifest } from '../recovery/manifest.js';
+	import { backupRegistryDb, restoreRegistryDb } from '../backup/registry-backup.js';
 	import { MultiDeviceManager } from '../registry/manager.js';
 	import { detectDeviceLabel } from '../registry/pairing-protocol.js';
 	import { loadWebAuthnCredentialSafe } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
@@ -74,6 +77,12 @@
 	let linkError = $state('');
 	let deviceManager = $state(null);
 
+	// Recovery state
+	let isRecovering = $state(false);
+	let recoveryStatus = $state('');
+	let ipnsKeyPair = $state(null);
+	let ipnsNameString = $state('');
+
 	function resetProgress() {
 		showProgress = false;
 		progressType = '';
@@ -111,6 +120,10 @@
 			// Notify parent that authentication succeeded — await so P2P stack can init
 			await onAuthenticate(signingMode);
 
+			// Derive IPNS keypair for manifest operations
+			const kp = identityService.getIPNSKeyPair();
+			if (kp) ipnsKeyPair = kp;
+
 			// Open/create registry DB if OrbitDB is available
 			await initRegistryDb();
 
@@ -121,6 +134,118 @@
 			showMessage(`Authentication failed: ${err.message}`, 'error');
 		} finally {
 			isAuthenticating = false;
+		}
+	}
+
+	async function handleRecover() {
+		isRecovering = true;
+		recoveryStatus = 'Authenticating with passkey...';
+		try {
+			// Step 1: Recover PRF seed via discoverable credential
+			const recovery = await identityService.initializeFromRecovery();
+			ipnsKeyPair = recovery.ipnsKeyPair;
+			recoveryStatus = 'Resolving IPNS manifest...';
+
+			// Step 2: Resolve manifest from w3name
+			const manifest = await resolveManifest(recovery.ipnsKeyPair.privateKey);
+			if (!manifest) {
+				throw new Error('No recovery manifest found. This identity may not have been backed up yet.');
+			}
+			recoveryStatus = 'Starting P2P stack...';
+
+			// Step 3: Notify parent to start P2P stack
+			signingMode = { mode: 'worker', did: manifest.ownerDid, algorithm: 'Ed25519', secure: false };
+			await onAuthenticate(signingMode);
+
+			// Step 4: Open registry by address from manifest
+			recoveryStatus = 'Restoring registry...';
+			if (orbitdb) {
+				registryDb = await openDeviceRegistry(orbitdb, manifest.ownerDid, manifest.registryAddress);
+				const addr = registryDb.address?.toString?.() || registryDb.address;
+				if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+				await identityService.setRegistry(registryDb);
+			}
+
+			// Step 5: Connect Storacha first (needed for backup restore fallback)
+			if (manifest.delegation) {
+				recoveryStatus = 'Connecting to Storacha...';
+				await handleConnectWithDelegation(manifest.delegation);
+			}
+
+			// Step 6: Try to find archive in registry, if not, restore from Storacha
+			recoveryStatus = 'Recovering identity...';
+			let archiveEntry = null;
+			if (registryDb) {
+				const keypairs = await listKeypairs(registryDb);
+				if (keypairs.length > 0) {
+					archiveEntry = await getArchiveEntry(registryDb, keypairs[0].did);
+				}
+			}
+			if (!archiveEntry && bridge && orbitdb) {
+				recoveryStatus = 'Restoring from Storacha backup...';
+				await restoreRegistryDb(bridge, orbitdb);
+				// Re-check after restore
+				if (registryDb) {
+					const keypairs = await listKeypairs(registryDb);
+					if (keypairs.length > 0) {
+						archiveEntry = await getArchiveEntry(registryDb, keypairs[0].did);
+					}
+				}
+			}
+
+			if (!archiveEntry) {
+				throw new Error('No encrypted archive found in registry. Cannot restore identity.');
+			}
+
+			// Step 7: Restore DID from archive
+			await identityService.restoreFromManifest(archiveEntry, manifest.ownerDid);
+			signingMode = identityService.getSigningMode();
+
+			recoveryStatus = '';
+			showMessage('Identity recovered successfully!');
+
+			// Initialize device manager
+			await initDeviceManager();
+		} catch (err) {
+			showMessage(`Recovery failed: ${err.message}`, 'error');
+			recoveryStatus = '';
+			signingMode = null;
+		} finally {
+			isRecovering = false;
+		}
+	}
+
+	async function handlePublishManifest() {
+		if (!client || !registryDb || !signingMode?.did) return;
+
+		// Derive IPNS keypair if not already available
+		if (!ipnsKeyPair) {
+			const kp = identityService.getIPNSKeyPair();
+			if (!kp) {
+				console.warn('[ui] No IPNS keypair available, cannot publish manifest');
+				return;
+			}
+			ipnsKeyPair = kp;
+		}
+
+		try {
+			const addr = registryDb.address?.toString?.() || registryDb.address;
+			const spaceDid = currentSpace?.did?.() || '';
+
+			// Get the current delegation string
+			const delegationStr = await loadStoredDelegation(registryDb);
+
+			const manifest = createManifest({
+				registryAddress: addr,
+				delegation: delegationStr || '',
+				ownerDid: signingMode.did
+			});
+
+			const result = await publishManifest(client, ipnsKeyPair.privateKey, manifest);
+			ipnsNameString = result.nameString;
+			console.log('[ui] Manifest published:', result.nameString);
+		} catch (err) {
+			console.warn('[ui] Failed to publish manifest:', err.message);
 		}
 	}
 
@@ -270,6 +395,9 @@
 
 		await loadSpaceUsage();
 		showMessage('Connected to Storacha via UCAN delegation!');
+
+		// Publish/update IPNS manifest
+		await handlePublishManifest();
 	}
 
 	function setupBridgeListeners() {
@@ -362,6 +490,17 @@
 					`Backup completed! ${result.blocksUploaded}/${result.blocksTotal} blocks uploaded`
 				);
 				onBackup(result);
+
+				// Also backup registry DB and update manifest
+				if (registryDb) {
+					try {
+						await backupRegistryDb(bridge, orbitdb, registryDb);
+						console.log('[ui] Registry DB backed up');
+					} catch (err) {
+						console.warn('[ui] Registry backup failed:', err.message);
+					}
+				}
+				await handlePublishManifest();
 			} else {
 				showMessage(result.error, 'error');
 			}
@@ -680,6 +819,23 @@
 								<span>Authenticate with Passkey</span>
 							{/if}
 						</button>
+
+						<!-- Recover Identity -->
+						<button
+							onclick={handleRecover}
+							disabled={isRecovering}
+							style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: transparent; padding: 0.5rem 1.25rem; color: #E91315; border: 1px solid #E91315; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; font-size: 0.75rem; opacity: {isRecovering ? '0.5' : '1'}; transition: background-color 150ms;"
+						>
+							{#if isRecovering}
+								<Loader2 style="height: 0.875rem; width: 0.875rem; animation: spin 1s linear infinite;" />
+								<span>{recoveryStatus || 'Recovering...'}</span>
+							{:else}
+								<svg style="height: 0.875rem; width: 0.875rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+								</svg>
+								<span>Recover Identity</span>
+							{/if}
+						</button>
 					</div>
 				{:else}
 					<!-- Step 2: Authenticated — show DID info + delegation import -->
@@ -815,6 +971,11 @@
 								{/if}
 							</div>
 						</div>
+						{#if ipnsNameString}
+							<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Mono', monospace; margin-top: 0.25rem;">
+								IPNS: {ipnsNameString.slice(0, 20)}...
+							</div>
+						{/if}
 					</div>
 
 					<!-- Linked Devices List -->
@@ -1047,6 +1208,11 @@
 								{/if}
 							</div>
 						</div>
+						{#if ipnsNameString}
+							<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Mono', monospace; margin-top: 0.25rem;">
+								IPNS: {ipnsNameString.slice(0, 20)}...
+							</div>
+						{/if}
 					</div>
 
 					{#if !libp2p}
