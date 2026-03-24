@@ -74,7 +74,9 @@ export {
 	createManifest,
 	publishManifest,
 	resolveManifest,
-	resolveManifestByName
+	resolveManifestByName,
+	uploadArchiveToIPFS,
+	fetchArchiveFromIPFS
 } from './recovery/manifest.js';
 
 // Backup (registry)
