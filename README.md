@@ -38,22 +38,100 @@ The component handles everything internally:
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
 5. P2P Passkeys tab shows connection status, peer info, and linked devices
 
-## Auth Flow
+## Worker Ed25519 Passkey Flow
+
+Worker mode (`preferWorkerMode={true}`) uses WebAuthn purely for user verification and PRF seed extraction — the actual signing key is an Ed25519 keypair generated in a web worker, encrypted with the PRF-derived key.
+
+### First Visit (Registration)
 
 ```
-First visit:
-  Authenticate with Passkey
-    → navigator.credentials.create() (biometric)
-    → PRF seed extracted (biometric)
-    → Ed25519 DID generated (did:key:z6Mk...)
-    → Encrypted archive cached in localStorage
-
-Return visit:
-  Authenticate with Passkey
-    → Cached archive found
-    → navigator.credentials.get() (biometric)
-    → Same DID restored
+User clicks "Authenticate with Passkey"
+  │
+  ├─ navigator.credentials.create()
+  │    ├─ Biometric prompt (Face ID / Touch ID / PIN)
+  │    ├─ Creates discoverable credential (resident key)
+  │    └─ PRF extension: eval({ first: deterministicSalt })
+  │
+  ├─ Extract PRF seed from credential response
+  │    └─ Deterministic 32-byte seed derived from biometric + salt
+  │
+  ├─ Initialize Ed25519 keystore with PRF seed
+  │    └─ PRF seed used as AES-GCM encryption key for the keystore
+  │
+  ├─ Generate Ed25519 keypair in web worker
+  │    ├─ Random Ed25519 keypair created
+  │    ├─ DID derived: did:key:z6Mk...
+  │    └─ Archive exported (private key material)
+  │
+  ├─ Encrypt archive with PRF-derived AES key
+  │    └─ { ciphertext, iv } stored as hex strings
+  │
+  ├─ Derive IPNS keypair from PRF seed (for recovery)
+  │    └─ Deterministic Ed25519 key for IPNS manifest publishing
+  │
+  └─ Store credentials
+       ├─ Encrypted archive → localStorage (bootstrap cache)
+       ├─ Keypair + archive → OrbitDB registry (when available)
+       └─ WebAuthn credential metadata → localStorage (for re-auth)
 ```
+
+### Return Visit (Restoration)
+
+```
+User clicks "Authenticate with Passkey"
+  │
+  ├─ Find cached archive in localStorage
+  │    └─ { did, ciphertext, iv, publicKeyHex }
+  │
+  ├─ Load stored WebAuthn credential metadata
+  │
+  ├─ navigator.credentials.get()
+  │    ├─ Biometric prompt (same passkey as registration)
+  │    └─ PRF extension: eval({ first: sameSalt })
+  │
+  ├─ Extract PRF seed → same seed as registration
+  │
+  ├─ Decrypt archive with PRF seed → same Ed25519 keypair
+  │
+  └─ Same DID restored: did:key:z6Mk...
+```
+
+### Recovery (New Device / Cleared Storage)
+
+```
+User clicks "Recover Identity"
+  │
+  ├─ navigator.credentials.get() (discoverable credential)
+  │    ├─ Biometric prompt — passkey synced via iCloud/Google/etc.
+  │    └─ PRF extension → same PRF seed
+  │
+  ├─ Derive IPNS keypair from PRF seed
+  │
+  ├─ Resolve IPNS manifest via w3name
+  │    └─ Manifest contains: { ownerDid, archiveCID, delegation, registryAddress }
+  │
+  ├─ Fetch encrypted archive from IPFS gateway (no auth needed)
+  │    └─ GET https://{archiveCID}.ipfs.w3s.link/ → { ciphertext, iv }
+  │
+  ├─ Decrypt archive with PRF seed → Ed25519 keypair restored
+  │
+  ├─ Connect to Storacha using delegation from manifest
+  │
+  └─ Same DID restored on new device
+```
+
+### Key Insight
+
+The WebAuthn credential never signs anything — it's only used for:
+1. **User verification** (biometric gate)
+2. **PRF seed extraction** (deterministic secret derived from biometric + salt)
+
+The PRF seed is the root of all derived keys:
+- **Ed25519 DID keypair** — encrypted with PRF-derived AES key
+- **IPNS recovery key** — deterministically derived from PRF seed
+- **Keystore encryption** — PRF seed used as AES-GCM key
+
+This means the same passkey on any device (via passkey sync) produces the same PRF seed, which unlocks the same DID identity.
 
 ### Signing Modes
 
