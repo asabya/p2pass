@@ -765,30 +765,30 @@
 		<!-- Progress Bar -->
 		{#if showProgress}
 			<div
-				style="margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid rgba(99, 102, 241, 0.4); background: linear-gradient(to right, #eef2ff, #faf5ff, #eff6ff); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
+				style="margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid rgba(233, 19, 21, 0.3); background: linear-gradient(to right, #FFF5E6, #FFF0F0, #FFF5E6); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
 			>
 				<div style="display: flex; align-items: flex-start; gap: 0.75rem;">
-					<div style="display: flex; height: 2rem; width: 2rem; align-items: center; justify-content: center; border-radius: 9999px; background: linear-gradient(to bottom right, #6366f1, #a855f7); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); flex-shrink: 0;">
+					<div style="display: flex; height: 2rem; width: 2rem; align-items: center; justify-content: center; border-radius: 9999px; background: linear-gradient(to bottom right, #E91315, #FFC83F); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); flex-shrink: 0;">
 						<svg style="height: 1rem; width: 1rem; color: #ffffff; animation: spin 1s linear infinite;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 						</svg>
 					</div>
 					<div style="flex: 1;">
 						<div style="margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
-							<span style="font-weight: 600; color: #312e81; font-family: 'Epilogue', sans-serif;">
+							<span style="font-weight: 600; color: #7A1518; font-family: 'Epilogue', sans-serif;">
 								{progressType === 'upload' ? 'Uploading' : 'Downloading'} Progress
 							</span>
-							<span style="font-size: 0.875rem; font-weight: 500; color: #4338ca; font-family: 'DM Mono', monospace;">
+							<span style="font-size: 0.875rem; font-weight: 500; color: #E91315; font-family: 'DM Mono', monospace;">
 								{progressPercentage}% ({progressCurrent}/{progressTotal})
 							</span>
 						</div>
-						<div style="height: 0.75rem; width: 100%; border-radius: 9999px; background-color: #e0e7ff; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.05);">
+						<div style="height: 0.75rem; width: 100%; border-radius: 9999px; background-color: #FFE4AE; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.05);">
 							<div
-								style="height: 0.75rem; border-radius: 9999px; background: linear-gradient(to right, #6366f1, #a855f7, #3b82f6); box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: all 500ms ease-out; width: {progressPercentage}%"
+								style="height: 0.75rem; border-radius: 9999px; background: linear-gradient(to right, #E91315, #FFC83F, #E91315); box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: all 500ms ease-out; width: {progressPercentage}%"
 							></div>
 						</div>
 						{#if progressCurrentBlock}
-							<div style="margin-top: 0.5rem; font-size: 0.75rem; color: rgba(67, 56, 202, 0.8); font-family: 'DM Mono', monospace;">
+							<div style="margin-top: 0.5rem; font-size: 0.75rem; color: rgba(122, 21, 24, 0.8); font-family: 'DM Mono', monospace;">
 								{progressType === 'upload' ? 'Current block:' : 'Current CID:'}
 								<span style="font-weight: 500;">
 									{progressType === 'upload'
