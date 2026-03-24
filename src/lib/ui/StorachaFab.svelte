@@ -64,8 +64,8 @@
 	</svg>
 </button>
 
+<!-- Backdrop overlay -->
 {#if showPanel}
-	<!-- Backdrop overlay -->
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		onclick={() => (showPanel = false)}
@@ -80,29 +80,30 @@
 			-webkit-backdrop-filter: blur(2px);
 		"
 	></div>
-
-	<!-- Floating panel -->
-	<div
-		style="
-			position: fixed;
-			right: 1.5rem;
-			bottom: 12rem;
-			z-index: 9999;
-			width: 24rem;
-			max-width: calc(100vw - 3rem);
-		"
-	>
-		<StorachaIntegration
-			{orbitdb}
-			{database}
-			{isInitialized}
-			{entryCount}
-			{databaseName}
-			{onRestore}
-			{onBackup}
-			{onAuthenticate}
-			{libp2p}
-			{preferWorkerMode}
-		/>
-	</div>
 {/if}
+
+<!-- Floating panel — kept alive, hidden via CSS to preserve state -->
+<div
+	style="
+		position: fixed;
+		right: 1.5rem;
+		bottom: 12rem;
+		z-index: 9999;
+		width: 24rem;
+		max-width: calc(100vw - 3rem);
+		display: {showPanel ? 'block' : 'none'};
+	"
+>
+	<StorachaIntegration
+		{orbitdb}
+		{database}
+		{isInitialized}
+		{entryCount}
+		{databaseName}
+		{onRestore}
+		{onBackup}
+		{onAuthenticate}
+		{libp2p}
+		{preferWorkerMode}
+	/>
+</div>
