@@ -1,7 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
 	import { StorachaFab, setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2p-passkeys';
-	import { loadWebAuthnCredentialSafe } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
 
 	let orbitdb = $state(null);
 	let libp2p = $state(null);
@@ -36,18 +35,19 @@
 		}
 	}
 
-	async function initP2P() {
+	async function initP2P(credential = null) {
 		try {
-			const credential = loadWebAuthnCredentialSafe();
-			if (credential && !p2pStack) {
-				// Full P2P stack with OrbitDB (credential available)
-				if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }
-				console.log('[app] Starting full P2P stack...');
-				p2pStack = await setupP2PStack(credential);
-				orbitdb = p2pStack.orbitdb;
-				libp2p = p2pStack.libp2p;
-				console.log('[app] Full P2P stack ready!');
-				return;
+			if (!p2pStack && (credential || orbitdb === null)) {
+				if (credential) {
+					// Full P2P stack with OrbitDB + WebAuthn identity
+					if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }
+					console.log('[app] Starting full P2P stack...');
+					p2pStack = await setupP2PStack(credential, { libp2p: libp2p || undefined });
+					orbitdb = p2pStack.orbitdb;
+					libp2p = p2pStack.libp2p;
+					console.log('[app] Full P2P stack ready!');
+					return;
+				}
 			}
 			if (!libp2p) {
 				// libp2p only — no credential yet, but P2P tab can show connected
@@ -62,7 +62,15 @@
 
 	async function handleAuthenticate(signingMode) {
 		console.log('[app] User authenticated:', signingMode.did);
-		await initP2P();
+		// Start full P2P stack with OrbitDB (default identity, no WebAuthn credential needed)
+		if (!p2pStack) {
+			if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }
+			console.log('[app] Starting full P2P stack after auth...');
+			p2pStack = await setupP2PStack(null, { libp2p: libp2p || undefined });
+			orbitdb = p2pStack.orbitdb;
+			libp2p = p2pStack.libp2p;
+			console.log('[app] Full P2P stack ready!');
+		}
 	}
 
 	onMount(() => {

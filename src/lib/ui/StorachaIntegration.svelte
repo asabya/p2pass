@@ -10,7 +10,7 @@
 	import { createStorachaClient, parseDelegation, storeDelegation, loadStoredDelegation, clearStoredDelegation } from '../ucan/storacha-auth.js';
 	import { openDeviceRegistry, registerDevice, listDevices as listRegistryDevices, getArchiveEntry, listKeypairs } from '../registry/device-registry.js';
 	import { deriveIPNSKeyPair } from '../recovery/ipns-key.js';
-	import { createManifest, publishManifest, resolveManifest } from '../recovery/manifest.js';
+	import { createManifest, publishManifest, resolveManifest, uploadArchiveToIPFS, fetchArchiveFromIPFS } from '../recovery/manifest.js';
 	import { backupRegistryDb, restoreRegistryDb } from '../backup/registry-backup.js';
 	import { MultiDeviceManager } from '../registry/manager.js';
 	import { detectDeviceLabel } from '../registry/pairing-protocol.js';
@@ -151,61 +151,49 @@
 			if (!manifest) {
 				throw new Error('No recovery manifest found. This identity may not have been backed up yet.');
 			}
-			recoveryStatus = 'Starting P2P stack...';
 
-			// Step 3: Notify parent to start P2P stack
-			signingMode = { mode: 'worker', did: manifest.ownerDid, algorithm: 'Ed25519', secure: false };
-			await onAuthenticate(signingMode);
-
-			// Step 4: Open registry by address from manifest
-			recoveryStatus = 'Restoring registry...';
-			if (orbitdb) {
-				registryDb = await openDeviceRegistry(orbitdb, manifest.ownerDid, manifest.registryAddress);
-				const addr = registryDb.address?.toString?.() || registryDb.address;
-				if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
-				await identityService.setRegistry(registryDb);
+			// Step 3: Restore DID from IPFS archive (no auth needed — public gateway)
+			if (!manifest.archiveCID) {
+				throw new Error('Manifest has no archiveCID. Cannot restore identity without it.');
 			}
-
-			// Step 5: Connect Storacha first (needed for backup restore fallback)
-			if (manifest.delegation) {
-				recoveryStatus = 'Connecting to Storacha...';
-				await handleConnectWithDelegation(manifest.delegation);
-			}
-
-			// Step 6: Try to find archive in registry, if not, restore from Storacha
-			recoveryStatus = 'Recovering identity...';
-			let archiveEntry = null;
-			if (registryDb) {
-				const keypairs = await listKeypairs(registryDb);
-				if (keypairs.length > 0) {
-					archiveEntry = await getArchiveEntry(registryDb, keypairs[0].did);
-				}
-			}
-			if (!archiveEntry && bridge && orbitdb) {
-				recoveryStatus = 'Restoring from Storacha backup...';
-				await restoreRegistryDb(bridge, orbitdb);
-				// Re-check after restore
-				if (registryDb) {
-					const keypairs = await listKeypairs(registryDb);
-					if (keypairs.length > 0) {
-						archiveEntry = await getArchiveEntry(registryDb, keypairs[0].did);
-					}
-				}
-			}
-
+			recoveryStatus = 'Fetching encrypted archive...';
+			const archiveEntry = await fetchArchiveFromIPFS(manifest.archiveCID);
 			if (!archiveEntry) {
-				throw new Error('No encrypted archive found in registry. Cannot restore identity.');
+				throw new Error('Failed to fetch encrypted archive from IPFS.');
 			}
 
-			// Step 7: Restore DID from archive
+			recoveryStatus = 'Restoring identity...';
 			await identityService.restoreFromManifest(archiveEntry, manifest.ownerDid);
 			signingMode = identityService.getSigningMode();
 
+			// Step 4: Start P2P stack (DID is restored, P2P uses default OrbitDB identity)
+			recoveryStatus = 'Starting P2P stack...';
+			await onAuthenticate(signingMode);
+
+			// Step 5: Connect Storacha directly (skip registry writes — no write access)
+			// The delegation and DID come from the manifest, not the registry.
+			if (manifest.delegation) {
+				recoveryStatus = 'Connecting to Storacha...';
+				const delegation = await parseDelegation(manifest.delegation);
+				const principal = await identityService.getPrincipal();
+				client = await createStorachaClient(principal, delegation);
+
+				// Store delegation in localStorage only (registry not writable)
+				const spaceDid = client.currentSpace()?.did?.() || '';
+				await storeDelegation(manifest.delegation, null, spaceDid);
+
+				currentSpace = client.currentSpace();
+				isLoggedIn = true;
+
+				// Set up bridge
+				bridge = new OrbitDBStorachaBridge({ ucanClient: client });
+				if (currentSpace) bridge.spaceDID = currentSpace.did();
+				setupBridgeListeners();
+				await loadSpaceUsage();
+			}
+
 			recoveryStatus = '';
 			showMessage('Identity recovered successfully!');
-
-			// Initialize device manager
-			await initDeviceManager();
 		} catch (err) {
 			showMessage(`Recovery failed: ${err.message}`, 'error');
 			recoveryStatus = '';
@@ -230,15 +218,27 @@
 
 		try {
 			const addr = registryDb.address?.toString?.() || registryDb.address;
-			const spaceDid = currentSpace?.did?.() || '';
 
 			// Get the current delegation string
 			const delegationStr = await loadStoredDelegation(registryDb);
 
+			// Upload encrypted archive to IPFS for auth-free recovery
+			let archiveCID = null;
+			const archiveData = await identityService.getEncryptedArchiveData();
+			if (archiveData) {
+				try {
+					archiveCID = await uploadArchiveToIPFS(client, archiveData);
+					console.log('[ui] Archive uploaded to IPFS:', archiveCID);
+				} catch (err) {
+					console.warn('[ui] Failed to upload archive to IPFS:', err.message);
+				}
+			}
+
 			const manifest = createManifest({
 				registryAddress: addr,
 				delegation: delegationStr || '',
-				ownerDid: signingMode.did
+				ownerDid: signingMode.did,
+				archiveCID
 			});
 
 			const result = await publishManifest(client, ipnsKeyPair.privateKey, manifest);
@@ -252,21 +252,34 @@
 	async function initRegistryDb() {
 		if (!orbitdb || !signingMode?.did) return;
 		try {
-			// Check for stored address first
 			const storedAddr = localStorage.getItem(REGISTRY_ADDRESS_KEY);
 			registryDb = await openDeviceRegistry(orbitdb, signingMode.did, storedAddr);
 
-			// Save address for future sessions
 			const addr = registryDb.address?.toString?.() || registryDb.address;
 			if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
 
-			// Bind to identity service
 			await identityService.setRegistry(registryDb);
 			console.log('[ui] Registry DB initialized:', addr);
-
-			// Initialize MultiDeviceManager if libp2p available
 			await initDeviceManager();
 		} catch (err) {
+			// If a stored address exists but we can't write, it's from a different identity.
+			// Clear it and create a fresh registry for this identity.
+			const storedAddr = localStorage.getItem(REGISTRY_ADDRESS_KEY);
+			if (storedAddr) {
+				console.warn('[ui] Stale registry address, creating new registry:', err.message);
+				localStorage.removeItem(REGISTRY_ADDRESS_KEY);
+				try {
+					registryDb = await openDeviceRegistry(orbitdb, signingMode.did, null);
+					const addr = registryDb.address?.toString?.() || registryDb.address;
+					if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+					await identityService.setRegistry(registryDb);
+					console.log('[ui] New registry DB created:', addr);
+					await initDeviceManager();
+					return;
+				} catch (retryErr) {
+					console.warn('[ui] Failed to create new registry:', retryErr.message);
+				}
+			}
 			console.warn('[ui] Failed to init registry DB:', err.message);
 		}
 	}
@@ -465,16 +478,12 @@
 			showMessage('Please log in first', 'error');
 			return;
 		}
-		if (!isInitialized) {
-			showMessage('OrbitDB is not initialized yet', 'error');
-			return;
-		}
-		if (entryCount === 0) {
-			showMessage('No entries to backup', 'error');
-			return;
-		}
-		if (!database) {
-			showMessage('No database provided', 'error');
+
+		const hasDatabase = database && entryCount > 0;
+		const hasRegistry = !!registryDb;
+
+		if (!hasDatabase && !hasRegistry) {
+			showMessage('No data to backup', 'error');
 			return;
 		}
 
@@ -483,27 +492,35 @@
 		status = 'Preparing backup...';
 
 		try {
-			const result = await bridge.backup(orbitdb, database.address);
+			// Backup user database if available
+			if (hasDatabase) {
+				const result = await bridge.backup(orbitdb, database.address);
 
-			if (result.success) {
-				showMessage(
-					`Backup completed! ${result.blocksUploaded}/${result.blocksTotal} blocks uploaded`
-				);
-				onBackup(result);
-
-				// Also backup registry DB and update manifest
-				if (registryDb) {
-					try {
-						await backupRegistryDb(bridge, orbitdb, registryDb);
-						console.log('[ui] Registry DB backed up');
-					} catch (err) {
-						console.warn('[ui] Registry backup failed:', err.message);
-					}
+				if (result.success) {
+					showMessage(
+						`Backup completed! ${result.blocksUploaded}/${result.blocksTotal} blocks uploaded`
+					);
+					onBackup(result);
+				} else {
+					showMessage(result.error, 'error');
+					return;
 				}
-				await handlePublishManifest();
-			} else {
-				showMessage(result.error, 'error');
 			}
+
+			// Backup registry DB
+			if (hasRegistry) {
+				try {
+					const regResult = await backupRegistryDb(bridge, orbitdb, registryDb);
+					console.log('[ui] Registry DB backed up:', regResult);
+					if (!hasDatabase) {
+						showMessage('Registry backup completed!');
+					}
+				} catch (err) {
+					console.warn('[ui] Registry backup failed:', err.message);
+				}
+			}
+
+			await handlePublishManifest();
 		} catch (err) {
 			showMessage(`Backup failed: ${err.message}`, 'error');
 		} finally {
@@ -1051,8 +1068,8 @@
 					<button
 						class="storacha-btn-backup"
 						onclick={handleBackup}
-						disabled={isLoading || !isInitialized || entryCount === 0}
-						style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #FFC83F; padding: 0.5rem 1rem; font-weight: 700; color: #111827; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; opacity: {isLoading || !isInitialized || entryCount === 0 ? '0.5' : '1'}; box-sizing: border-box;"
+						disabled={isLoading || (!registryDb && entryCount === 0)}
+						style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #FFC83F; padding: 0.5rem 1rem; font-weight: 700; color: #111827; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; opacity: {isLoading || (!registryDb && entryCount === 0) ? '0.5' : '1'}; box-sizing: border-box;"
 					>
 						<Upload style="height: 1rem; width: 1rem;" />
 						<span>Backup to Storacha</span>

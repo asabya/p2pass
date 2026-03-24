@@ -242,6 +242,35 @@ export class IdentityService {
 	}
 
 	/**
+	 * Get the encrypted archive data (ciphertext + iv as hex strings) for the current identity.
+	 * Used by manifest publishing to upload the archive to IPFS for auth-free recovery.
+	 *
+	 * @returns {Promise<{ ciphertext: string, iv: string }|null>}
+	 */
+	async getEncryptedArchiveData() {
+		if (!this.#did) return null;
+
+		// From pending credentials (not yet flushed to registry)
+		if (this.#pendingCredentials) {
+			return { ciphertext: this.#pendingCredentials.ciphertext, iv: this.#pendingCredentials.iv };
+		}
+
+		// From registry DB
+		if (this.#registryDb) {
+			const entry = await getArchiveEntry(this.#registryDb, this.#did);
+			if (entry) return { ciphertext: entry.ciphertext, iv: entry.iv };
+		}
+
+		// From localStorage cache
+		const cached = this.#loadCachedArchive();
+		if (cached && cached.did === this.#did) {
+			return { ciphertext: cached.ciphertext, iv: cached.iv };
+		}
+
+		return null;
+	}
+
+	/**
 	 * Try to restore a worker identity.
 	 * Checks registry DB first, falls back to in-memory pending credentials.
 	 * Requires WebAuthn re-auth to get PRF seed for archive decryption.

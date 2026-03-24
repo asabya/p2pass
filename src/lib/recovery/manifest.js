@@ -28,6 +28,7 @@ const FETCH_TIMEOUT_MS = 30_000;
  * @property {string} registryAddress - OrbitDB address, e.g. "/orbitdb/zdpu..."
  * @property {string} delegation - base64-encoded UCAN delegation
  * @property {string} ownerDid - owner DID, e.g. "did:key:z6Mk..."
+ * @property {string|null} [archiveCID] - CID of encrypted archive on IPFS (for auth-free recovery)
  * @property {number} updatedAt - unix epoch ms
  */
 
@@ -40,16 +41,68 @@ const FETCH_TIMEOUT_MS = 30_000;
  * @param {string} params.registryAddress
  * @param {string} params.delegation
  * @param {string} params.ownerDid
+ * @param {string} [params.archiveCID] - CID of encrypted archive on IPFS
  * @returns {Manifest}
  */
-export function createManifest({ registryAddress, delegation, ownerDid }) {
+export function createManifest({ registryAddress, delegation, ownerDid, archiveCID }) {
   return {
     version: 1,
     registryAddress,
     delegation,
     ownerDid,
+    archiveCID: archiveCID || null,
     updatedAt: Date.now()
   };
+}
+
+/**
+ * Upload an encrypted archive to IPFS via Storacha.
+ * The archive is stored as a JSON blob accessible via public gateway
+ * without authentication.
+ *
+ * @param {object} storachaClient - Storacha client with `uploadFile`
+ * @param {{ ciphertext: string, iv: string }} archiveData - hex-encoded
+ * @returns {Promise<string>} CID string
+ */
+export async function uploadArchiveToIPFS(storachaClient, archiveData) {
+  const blob = new Blob(
+    [JSON.stringify({ ciphertext: archiveData.ciphertext, iv: archiveData.iv })],
+    { type: 'application/json' }
+  );
+  const cid = await storachaClient.uploadFile(blob);
+  console.log(PREFIX, 'Encrypted archive uploaded to IPFS:', cid.toString());
+  return cid.toString();
+}
+
+/**
+ * Fetch an encrypted archive from the IPFS gateway (no auth needed).
+ *
+ * @param {string} cid - IPFS CID of the archive JSON
+ * @returns {Promise<{ ciphertext: string, iv: string }|null>}
+ */
+export async function fetchArchiveFromIPFS(cid) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const url = GATEWAY.replace('{cid}', cid);
+    console.log(PREFIX, 'Fetching encrypted archive from gateway:', cid);
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      console.log(PREFIX, `Gateway returned ${res.status} for archive CID ${cid}`);
+      return null;
+    }
+    const data = await res.json();
+    if (!data.ciphertext || !data.iv) {
+      console.log(PREFIX, 'Invalid archive format — missing ciphertext or iv');
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.log(PREFIX, 'Failed to fetch archive from gateway:', err?.message ?? err);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
