@@ -109,18 +109,6 @@ export async function createLibp2pInstance(options = {}) {
 
   console.log('[p2p] libp2p started, peerId:', libp2p.peerId.toString());
 
-  // Debug: log connection events and relay reservations
-  libp2p.addEventListener('peer:connect', (evt) => {
-    console.log('[p2p] Peer connected:', evt.detail.toString());
-  });
-  libp2p.addEventListener('peer:disconnect', (evt) => {
-    console.log('[p2p] Peer disconnected:', evt.detail.toString());
-  });
-  libp2p.addEventListener('self:peer:update', () => {
-    const addrs = libp2p.getMultiaddrs().map((ma) => ma.toString());
-    console.log('[p2p] Self peer update — multiaddrs:', addrs);
-  });
-
   return libp2p;
 }
 

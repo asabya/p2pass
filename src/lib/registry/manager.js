@@ -216,17 +216,13 @@ export class MultiDeviceManager {
   getPeerInfo() {
     if (!this._libp2p) throw new Error('Libp2p not initialized');
     const peerId = this._libp2p.peerId.toString();
-    const allMultiaddrs = this._libp2p.getMultiaddrs().map((ma) => ma.toString());
-    const connectedPeers = this._libp2p.getConnections().map((c) => c.remotePeer.toString());
-    console.log('[p2p] All multiaddrs:', allMultiaddrs);
-    console.log('[p2p] Connected peers:', connectedPeers.length, connectedPeers);
-    const filteredMultiaddrs = allMultiaddrs
+    const filteredMultiaddrs = this._libp2p.getMultiaddrs()
+      .map((ma) => ma.toString())
       .filter((ma) => {
         const lower = ma.toLowerCase();
         return (lower.includes('/ws/') || lower.includes('/wss/') || lower.includes('/webtransport') || lower.includes('/p2p-circuit'))
           && !lower.includes('/ip4/127.') && !lower.includes('/ip4/localhost') && !lower.includes('/ip6/::1');
       });
-    console.log('[p2p] Filtered multiaddrs:', filteredMultiaddrs);
     return { peerId, multiaddrs: filteredMultiaddrs };
   }
 

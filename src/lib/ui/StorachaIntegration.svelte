@@ -475,42 +475,38 @@
 	}
 
 	async function migrateRegistryEntries(oldDb, newDb, did) {
-		// Wait for write access to propagate from Device A before migrating
+		// Read all entries from old DB once (stable — not being written to during migration)
+		const keypairs = await listKeypairs(oldDb);
+		const archive = await getArchiveEntry(oldDb, did);
+		const delegations = await listDelegations(oldDb);
+
+		if (keypairs.length === 0 && !archive && delegations.length === 0) {
+			console.log('[ui] No entries to migrate');
+			return true;
+		}
+
+		// Retry writes until ACL grant propagates from Device A
 		const maxWait = 120000;
 		const start = Date.now();
 		while (Date.now() - start < maxWait) {
 			try {
-				// Test write with the keypair entry first
-				const keypairs = await listKeypairs(oldDb);
-				if (keypairs.length > 0) {
-					await storeKeypairEntry(newDb, keypairs[0].did, keypairs[0].publicKey);
-					console.log('[ui] Write access confirmed after', Date.now() - start, 'ms');
-
-					// Migrate remaining keypairs
-					for (const kp of keypairs.slice(1)) {
-						await storeKeypairEntry(newDb, kp.did, kp.publicKey);
-					}
-
-					const archive = await getArchiveEntry(oldDb, did);
-					if (archive) {
-						await storeArchiveEntry(newDb, did, archive.ciphertext, archive.iv);
-						console.log('[ui] Migrated archive for:', did);
-					}
-
-					const delegations = await listDelegations(oldDb);
-					for (const d of delegations) {
-						await storeDelegationEntry(newDb, d.delegation, d.space_did);
-					}
-					if (delegations.length > 0) console.log('[ui] Migrated', delegations.length, 'delegation(s)');
-					return true;
+				for (const kp of keypairs) {
+					await storeKeypairEntry(newDb, kp.did, kp.publicKey);
 				}
+				if (archive) {
+					await storeArchiveEntry(newDb, did, archive.ciphertext, archive.iv);
+				}
+				for (const d of delegations) {
+					await storeDelegationEntry(newDb, d.delegation, d.space_did);
+				}
+				console.log('[ui] Registry migration complete after', Date.now() - start, 'ms');
+				return true;
 			} catch (err) {
 				if (!err.message?.includes('not allowed to write')) {
 					console.warn('[ui] Registry migration error:', err.message);
 					return false;
 				}
 			}
-			console.log('[ui] Waiting for write access to propagate...');
 			await new Promise(r => setTimeout(r, 1000));
 		}
 		console.warn('[ui] Registry migration timed out waiting for write access');
@@ -793,6 +789,43 @@
 		// Don't auto-connect — user must click "Authenticate" which may prompt biometric
 	});
 </script>
+
+{#snippet pairingApprovalPrompt()}
+{#if pendingPairRequest}
+<div style="border-radius: 0.375rem; border: 2px solid #FFC83F; background: linear-gradient(to bottom right, #ffffff, #FFF8E1); padding: 1rem; box-shadow: 0 4px 12px rgba(233, 19, 21, 0.15);">
+	<h4 style="margin: 0 0 0.5rem 0; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
+		Device Pairing Request
+	</h4>
+	<p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
+		A device wants to link to your account:
+	</p>
+	<div style="background: rgba(233, 19, 21, 0.04); border-radius: 0.25rem; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;">
+		<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif;">
+			<strong>Device:</strong> {pendingPairRequest.identity?.deviceLabel || 'Unknown'}
+		</div>
+		<div style="font-size: 0.65rem; color: #9ca3af; font-family: 'DM Mono', monospace; margin-top: 0.25rem; word-break: break-all;">
+			{pendingPairRequest.identity?.id
+				? pendingPairRequest.identity.id.slice(0, 20) + '...' + pendingPairRequest.identity.id.slice(-8)
+				: 'N/A'}
+		</div>
+	</div>
+	<div style="display: flex; gap: 0.5rem;">
+		<button
+			onclick={() => handlePairDecision('granted')}
+			style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+		>
+			Approve
+		</button>
+		<button
+			onclick={() => handlePairDecision('rejected')}
+			style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+		>
+			Deny
+		</button>
+	</div>
+</div>
+{/if}
+{/snippet}
 
 <div
 	class="storacha-panel"
@@ -1205,41 +1238,7 @@
 						{/if}
 					</div>
 
-					{#if pendingPairRequest}
-					<!-- Pairing Approval Prompt -->
-					<div style="border-radius: 0.375rem; border: 2px solid #FFC83F; background: linear-gradient(to bottom right, #ffffff, #FFF8E1); padding: 1rem; box-shadow: 0 4px 12px rgba(233, 19, 21, 0.15);">
-						<h4 style="margin: 0 0 0.5rem 0; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
-							Device Pairing Request
-						</h4>
-						<p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
-							A device wants to link to your account:
-						</p>
-						<div style="background: rgba(233, 19, 21, 0.04); border-radius: 0.25rem; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;">
-							<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif;">
-								<strong>Device:</strong> {pendingPairRequest.identity?.deviceLabel || 'Unknown'}
-							</div>
-							<div style="font-size: 0.65rem; color: #9ca3af; font-family: 'DM Mono', monospace; margin-top: 0.25rem; word-break: break-all;">
-								{pendingPairRequest.identity?.id
-									? pendingPairRequest.identity.id.slice(0, 20) + '...' + pendingPairRequest.identity.id.slice(-8)
-									: 'N/A'}
-							</div>
-						</div>
-						<div style="display: flex; gap: 0.5rem;">
-							<button
-								onclick={() => handlePairDecision('granted')}
-								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
-							>
-								Approve
-							</button>
-							<button
-								onclick={() => handlePairDecision('rejected')}
-								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
-							>
-								Deny
-							</button>
-						</div>
-					</div>
-					{/if}
+					{@render pairingApprovalPrompt()}
 
 					<!-- Linked Devices List -->
 					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
@@ -1523,41 +1522,7 @@
 						</div>
 					{/if}
 
-					{#if pendingPairRequest}
-					<!-- Pairing Approval Prompt -->
-					<div style="border-radius: 0.375rem; border: 2px solid #FFC83F; background: linear-gradient(to bottom right, #ffffff, #FFF8E1); padding: 1rem; box-shadow: 0 4px 12px rgba(233, 19, 21, 0.15);">
-						<h4 style="margin: 0 0 0.5rem 0; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
-							Device Pairing Request
-						</h4>
-						<p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
-							A device wants to link to your account:
-						</p>
-						<div style="background: rgba(233, 19, 21, 0.04); border-radius: 0.25rem; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;">
-							<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif;">
-								<strong>Device:</strong> {pendingPairRequest.identity?.deviceLabel || 'Unknown'}
-							</div>
-							<div style="font-size: 0.65rem; color: #9ca3af; font-family: 'DM Mono', monospace; margin-top: 0.25rem; word-break: break-all;">
-								{pendingPairRequest.identity?.id
-									? pendingPairRequest.identity.id.slice(0, 20) + '...' + pendingPairRequest.identity.id.slice(-8)
-									: 'N/A'}
-							</div>
-						</div>
-						<div style="display: flex; gap: 0.5rem;">
-							<button
-								onclick={() => handlePairDecision('granted')}
-								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
-							>
-								Approve
-							</button>
-							<button
-								onclick={() => handlePairDecision('rejected')}
-								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
-							>
-								Deny
-							</button>
-						</div>
-					</div>
-					{/if}
+					{@render pairingApprovalPrompt()}
 
 					<!-- Linked Devices List -->
 					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
