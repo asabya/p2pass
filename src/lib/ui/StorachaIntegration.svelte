@@ -8,7 +8,7 @@
 	import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
 	import { IdentityService } from '../identity/identity-service.js';
 	import { createStorachaClient, parseDelegation, storeDelegation, loadStoredDelegation, clearStoredDelegation } from '../ucan/storacha-auth.js';
-	import { openDeviceRegistry, registerDevice, listDevices as listRegistryDevices, getArchiveEntry, listKeypairs } from '../registry/device-registry.js';
+	import { openDeviceRegistry, registerDevice, getDeviceByDID, listDevices as listRegistryDevices, getArchiveEntry, listKeypairs, storeKeypairEntry, storeArchiveEntry, listDelegations, storeDelegationEntry } from '../registry/device-registry.js';
 	import { deriveIPNSKeyPair } from '../recovery/ipns-key.js';
 	import { createManifest, publishManifest, resolveManifest, uploadArchiveToIPFS, fetchArchiveFromIPFS } from '../recovery/manifest.js';
 	import { backupRegistryDb, restoreRegistryDb } from '../backup/registry-backup.js';
@@ -77,6 +77,8 @@
 	let isLinking = $state(false);
 	let linkError = $state('');
 	let deviceManager = $state(null);
+	let pendingPairRequest = $state(null);
+	let pendingPairResolve = $state(null);
 
 	// Recovery state
 	let isRecovering = $state(false);
@@ -281,12 +283,22 @@
 		recoveryStatus = 'Starting P2P stack...';
 		await onAuthenticate(signingMode);
 
-		if (manifest.delegation) {
-			recoveryStatus = 'Connecting to Storacha...';
-			await connectStoracha(manifest.delegation, { store: true });
+		// Wait for orbitdb prop to propagate from parent
+		let waited = 0;
+		while (!orbitdb && waited < 2000) {
+			await new Promise(r => setTimeout(r, 50));
+			waited += 50;
 		}
 
-		console.log('[recovery:ipns] Succeeded — DID cached for future local recovery');
+		// Open registry DB so address gets persisted for future local recovery
+		await initRegistryDb();
+
+		if (manifest.delegation) {
+			recoveryStatus = 'Connecting to Storacha...';
+			await connectStoracha(manifest.delegation, { store: true, storeRegistryDb: registryDb });
+		}
+
+		console.log('[recovery:ipns] Succeeded — DID + registry address cached for future local recovery');
 	}
 
 	async function handlePublishManifest() {
@@ -339,6 +351,28 @@
 		}
 	}
 
+	async function selfRegisterDevice() {
+		if (!registryDb || !signingMode?.did) return;
+		try {
+			const existing = await getDeviceByDID(registryDb, signingMode.did);
+			if (existing) return;
+			const credential = loadWebAuthnCredentialSafe();
+			await registerDevice(registryDb, {
+				credential_id: credential?.credentialId || credential?.id || libp2p?.peerId?.toString() || signingMode.did,
+				public_key: credential?.publicKey?.x && credential?.publicKey?.y
+					? { kty: 'EC', crv: 'P-256', x: credential.publicKey.x, y: credential.publicKey.y }
+					: null,
+				device_label: detectDeviceLabel(),
+				created_at: Date.now(),
+				status: 'active',
+				ed25519_did: signingMode.did
+			});
+			console.log('[ui] Self-registered device in registry');
+		} catch (err) {
+			console.warn('[ui] Failed to self-register device:', err.message);
+		}
+	}
+
 	async function initRegistryDb() {
 		if (!orbitdb || !signingMode?.did) return;
 		try {
@@ -350,6 +384,7 @@
 			localStorage.setItem(OWNER_DID_KEY, signingMode.did);
 
 			await identityService.setRegistry(registryDb);
+			await selfRegisterDevice();
 			console.log('[ui] Registry DB initialized:', addr, '— DID persisted:', signingMode.did);
 			await initDeviceManager();
 		} catch (err) {
@@ -365,6 +400,7 @@
 					if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
 					localStorage.setItem(OWNER_DID_KEY, signingMode.did);
 					await identityService.setRegistry(registryDb);
+					await selfRegisterDevice();
 					console.log('[ui] New registry DB created:', addr, '— DID persisted:', signingMode.did);
 					await initDeviceManager();
 					return;
@@ -385,6 +421,14 @@
 				orbitdb,
 				libp2p,
 				identity: { id: signingMode.did },
+				onPairingRequest: async (request) => {
+					console.log('[p2p] Pairing request from:', request?.identity?.id || request?.identity?.deviceLabel);
+					activeTab = 'passkeys';
+					return new Promise((resolve) => {
+						pendingPairRequest = request;
+						pendingPairResolve = resolve;
+					});
+				},
 				onDeviceLinked: (device) => {
 					devices = devices.filter(d => d.ed25519_did !== device.ed25519_did);
 					devices = [...devices, device];
@@ -395,20 +439,6 @@
 			});
 			const dbAddr = registryDb.address?.toString?.() || registryDb.address;
 			if (dbAddr) await deviceManager.openExistingDb(dbAddr);
-
-			// Self-register this device if not already in registry
-			if (credential) {
-				await registerDevice(registryDb, {
-					credential_id: credential.credentialId || credential.id || libp2p.peerId.toString(),
-					public_key: credential.publicKey?.x && credential.publicKey?.y
-						? { kty: 'EC', crv: 'P-256', x: credential.publicKey.x, y: credential.publicKey.y }
-						: null,
-					device_label: detectDeviceLabel(),
-					created_at: Date.now(),
-					status: 'active',
-					ed25519_did: signingMode.did
-				});
-			}
 
 			devices = await deviceManager.listDevices();
 			peerInfo = deviceManager.getPeerInfo();
@@ -430,13 +460,61 @@
 	}
 
 	function handleCopyPeerInfo() {
-		const info = peerInfo || (libp2p ? {
-			peerId: libp2p.peerId.toString(),
-			multiaddrs: libp2p.getMultiaddrs().map(ma => ma.toString())
-		} : null);
-		if (!info) return;
-		navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+		// Always get fresh multiaddrs — relay reservations arrive asynchronously
+		if (deviceManager) {
+			peerInfo = deviceManager.getPeerInfo();
+		} else if (libp2p) {
+			peerInfo = {
+				peerId: libp2p.peerId.toString(),
+				multiaddrs: libp2p.getMultiaddrs().map(ma => ma.toString())
+			};
+		}
+		if (!peerInfo) return;
+		navigator.clipboard.writeText(JSON.stringify(peerInfo, null, 2));
 		showMessage('Peer info copied to clipboard!');
+	}
+
+	async function migrateRegistryEntries(oldDb, newDb, did) {
+		// Wait for write access to propagate from Device A before migrating
+		const maxWait = 120000;
+		const start = Date.now();
+		while (Date.now() - start < maxWait) {
+			try {
+				// Test write with the keypair entry first
+				const keypairs = await listKeypairs(oldDb);
+				if (keypairs.length > 0) {
+					await storeKeypairEntry(newDb, keypairs[0].did, keypairs[0].publicKey);
+					console.log('[ui] Write access confirmed after', Date.now() - start, 'ms');
+
+					// Migrate remaining keypairs
+					for (const kp of keypairs.slice(1)) {
+						await storeKeypairEntry(newDb, kp.did, kp.publicKey);
+					}
+
+					const archive = await getArchiveEntry(oldDb, did);
+					if (archive) {
+						await storeArchiveEntry(newDb, did, archive.ciphertext, archive.iv);
+						console.log('[ui] Migrated archive for:', did);
+					}
+
+					const delegations = await listDelegations(oldDb);
+					for (const d of delegations) {
+						await storeDelegationEntry(newDb, d.delegation, d.space_did);
+					}
+					if (delegations.length > 0) console.log('[ui] Migrated', delegations.length, 'delegation(s)');
+					return true;
+				}
+			} catch (err) {
+				if (!err.message?.includes('not allowed to write')) {
+					console.warn('[ui] Registry migration error:', err.message);
+					return false;
+				}
+			}
+			console.log('[ui] Waiting for write access to propagate...');
+			await new Promise(r => setTimeout(r, 1000));
+		}
+		console.warn('[ui] Registry migration timed out waiting for write access');
+		return false;
 	}
 
 	async function handleLinkDevice() {
@@ -447,6 +525,23 @@
 			const payload = JSON.parse(linkInput.trim());
 			const result = await deviceManager.linkToDevice(payload);
 			if (result.type === 'granted') {
+				const sharedAddr = result.dbAddress?.toString?.() || result.dbAddress;
+
+				// Migrate Device B's entries to the shared registry before switching
+				let migrated = false;
+				if (registryDb && deviceManager.getDevicesDb() && signingMode?.did) {
+					const sharedDb = deviceManager.getDevicesDb();
+					console.log('[ui] Migrating entries from old registry to shared registry...');
+					migrated = await migrateRegistryEntries(registryDb, sharedDb, signingMode.did);
+				}
+
+				// Only switch to shared registry if migration succeeded
+				if (migrated && sharedAddr) {
+					localStorage.setItem(REGISTRY_ADDRESS_KEY, sharedAddr);
+					console.log('[ui] Persisted shared registry address from Device A:', sharedAddr);
+				} else if (!migrated) {
+					console.warn('[ui] Keeping old registry address — migration did not complete');
+				}
 				showMessage('Device linked successfully!');
 				linkInput = '';
 				devices = await deviceManager.listDevices();
@@ -457,6 +552,14 @@
 			linkError = `Failed to link: ${err.message}`;
 		} finally {
 			isLinking = false;
+		}
+	}
+
+	function handlePairDecision(decision) {
+		if (pendingPairResolve) {
+			pendingPairResolve(decision);
+			pendingPairResolve = null;
+			pendingPairRequest = null;
 		}
 	}
 
@@ -979,6 +1082,7 @@
 							</div>
 						</div>
 
+						{#if activeTab !== 'passkeys'}
 						<!-- Delegation Import -->
 						<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #EFE3F3); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);">
 							<h4 style="margin-bottom: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
@@ -1013,6 +1117,43 @@
 								</button>
 							</div>
 						</div>
+						{:else}
+						<!-- Link Device (peer info paste) -->
+						<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);">
+							<h4 style="margin-bottom: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
+								Link Another Device
+							</h4>
+							<p style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
+								Paste the peer info JSON from another device to link it.
+							</p>
+							<div style="display: flex; flex-direction: column; gap: 0.75rem;">
+								<textarea
+									bind:value={linkInput}
+									placeholder='Paste peer info JSON here...'
+									rows="4"
+									style="width: 100%; resize: none; border-radius: 0.375rem; border: 1px solid #E91315; background-color: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
+								></textarea>
+								{#if linkError}
+									<div style="font-size: 0.7rem; color: #dc2626; font-family: 'DM Sans', sans-serif;">{linkError}</div>
+								{/if}
+								<button
+									onclick={handleLinkDevice}
+									disabled={isLinking || !linkInput.trim()}
+									style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {isLinking || !linkInput.trim() ? '0.5' : '1'}; box-sizing: border-box;"
+								>
+									{#if isLinking}
+										<Loader2 style="height: 1rem; width: 1rem; animation: spin 1s linear infinite;" />
+										<span>Linking...</span>
+									{:else}
+										<svg style="height: 1rem; width: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+										</svg>
+										<span>Link Device</span>
+									{/if}
+								</button>
+							</div>
+						</div>
+						{/if}
 					</div>
 				{/if}
 
@@ -1063,6 +1204,42 @@
 							</div>
 						{/if}
 					</div>
+
+					{#if pendingPairRequest}
+					<!-- Pairing Approval Prompt -->
+					<div style="border-radius: 0.375rem; border: 2px solid #FFC83F; background: linear-gradient(to bottom right, #ffffff, #FFF8E1); padding: 1rem; box-shadow: 0 4px 12px rgba(233, 19, 21, 0.15);">
+						<h4 style="margin: 0 0 0.5rem 0; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
+							Device Pairing Request
+						</h4>
+						<p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
+							A device wants to link to your account:
+						</p>
+						<div style="background: rgba(233, 19, 21, 0.04); border-radius: 0.25rem; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;">
+							<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif;">
+								<strong>Device:</strong> {pendingPairRequest.identity?.deviceLabel || 'Unknown'}
+							</div>
+							<div style="font-size: 0.65rem; color: #9ca3af; font-family: 'DM Mono', monospace; margin-top: 0.25rem; word-break: break-all;">
+								{pendingPairRequest.identity?.id
+									? pendingPairRequest.identity.id.slice(0, 20) + '...' + pendingPairRequest.identity.id.slice(-8)
+									: 'N/A'}
+							</div>
+						</div>
+						<div style="display: flex; gap: 0.5rem;">
+							<button
+								onclick={() => handlePairDecision('granted')}
+								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+							>
+								Approve
+							</button>
+							<button
+								onclick={() => handlePairDecision('rejected')}
+								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+							>
+								Deny
+							</button>
+						</div>
+					</div>
+					{/if}
 
 					<!-- Linked Devices List -->
 					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
@@ -1344,6 +1521,42 @@
 								<div style="margin-top: 0.5rem; font-size: 0.75rem; color: #b91c1c; font-family: 'DM Sans', sans-serif;">{linkError}</div>
 							{/if}
 						</div>
+					{/if}
+
+					{#if pendingPairRequest}
+					<!-- Pairing Approval Prompt -->
+					<div style="border-radius: 0.375rem; border: 2px solid #FFC83F; background: linear-gradient(to bottom right, #ffffff, #FFF8E1); padding: 1rem; box-shadow: 0 4px 12px rgba(233, 19, 21, 0.15);">
+						<h4 style="margin: 0 0 0.5rem 0; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
+							Device Pairing Request
+						</h4>
+						<p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
+							A device wants to link to your account:
+						</p>
+						<div style="background: rgba(233, 19, 21, 0.04); border-radius: 0.25rem; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;">
+							<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif;">
+								<strong>Device:</strong> {pendingPairRequest.identity?.deviceLabel || 'Unknown'}
+							</div>
+							<div style="font-size: 0.65rem; color: #9ca3af; font-family: 'DM Mono', monospace; margin-top: 0.25rem; word-break: break-all;">
+								{pendingPairRequest.identity?.id
+									? pendingPairRequest.identity.id.slice(0, 20) + '...' + pendingPairRequest.identity.id.slice(-8)
+									: 'N/A'}
+							</div>
+						</div>
+						<div style="display: flex; gap: 0.5rem;">
+							<button
+								onclick={() => handlePairDecision('granted')}
+								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+							>
+								Approve
+							</button>
+							<button
+								onclick={() => handlePairDecision('rejected')}
+								style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+							>
+								Deny
+							</button>
+						</div>
+					</div>
 					{/if}
 
 					<!-- Linked Devices List -->

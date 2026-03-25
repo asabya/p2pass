@@ -39,8 +39,7 @@
 		try {
 			if (!p2pStack && (credential || orbitdb === null)) {
 				if (credential) {
-					// Full P2P stack with OrbitDB + WebAuthn identity
-					if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }
+					// Full P2P stack with OrbitDB + WebAuthn identity — reuse existing libp2p
 					console.log('[app] Starting full P2P stack...');
 					p2pStack = await setupP2PStack(credential, { libp2p: libp2p || undefined });
 					orbitdb = p2pStack.orbitdb;
@@ -62,9 +61,8 @@
 
 	async function handleAuthenticate(signingMode) {
 		console.log('[app] User authenticated:', signingMode?.did ?? '(default identity)');
-		// Start full P2P stack with OrbitDB (default identity, no WebAuthn credential needed)
+		// Start full P2P stack with OrbitDB — reuse existing libp2p to keep peer ID stable
 		if (!p2pStack) {
-			if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }
 			console.log('[app] Starting full P2P stack after auth...');
 			p2pStack = await setupP2PStack(null, { libp2p: libp2p || undefined });
 			orbitdb = p2pStack.orbitdb;

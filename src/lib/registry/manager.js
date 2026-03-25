@@ -20,6 +20,7 @@ import {
   detectDeviceLabel,
   sendPairingRequest,
   registerLinkDeviceHandler,
+  LINK_DEVICE_PROTOCOL,
 } from './pairing-protocol.js';
 
 export class MultiDeviceManager {
@@ -76,6 +77,8 @@ export class MultiDeviceManager {
   async _finalizeDb() {
     await this._setupSyncListeners();
     if (this._onPairingRequest) {
+      // Unregister existing handler before re-registering (e.g. after DB reopen)
+      try { await this._libp2p.unhandle(LINK_DEVICE_PROTOCOL); } catch { /* not registered */ }
       console.log('[manager] Registering link device handler for peer:', this._libp2p?.peerId?.toString());
       await registerLinkDeviceHandler(
         this._libp2p, this._devicesDb, this._onPairingRequest, this._onDeviceLinked
@@ -93,7 +96,7 @@ export class MultiDeviceManager {
     this._dbAddress = this._devicesDb.address;
 
     await registerDevice(this._devicesDb, {
-      credential_id: this._credential.credentialId,
+      credential_id: this._credential?.credentialId || this._credential?.id || this._libp2p?.peerId?.toString() || 'unknown',
       public_key: this._getPublicKey(),
       device_label: detectDeviceLabel(),
       created_at: Date.now(),
@@ -183,7 +186,8 @@ export class MultiDeviceManager {
       qrPayload.peerId,
       {
         id: this._identity.id,
-        credentialId: this._credential.credentialId,
+        orbitdbIdentityId: this._orbitdb?.identity?.id || null,
+        credentialId: this._credential?.credentialId || this._credential?.id || this._libp2p.peerId.toString(),
         publicKey: null,
         deviceLabel: detectDeviceLabel(),
       },
@@ -205,16 +209,24 @@ export class MultiDeviceManager {
     return { type: 'granted', dbAddress: this._dbAddress };
   }
 
+  getDevicesDb() {
+    return this._devicesDb;
+  }
+
   getPeerInfo() {
     if (!this._libp2p) throw new Error('Libp2p not initialized');
     const peerId = this._libp2p.peerId.toString();
-    const filteredMultiaddrs = this._libp2p.getMultiaddrs()
-      .map((ma) => ma.toString())
+    const allMultiaddrs = this._libp2p.getMultiaddrs().map((ma) => ma.toString());
+    const connectedPeers = this._libp2p.getConnections().map((c) => c.remotePeer.toString());
+    console.log('[p2p] All multiaddrs:', allMultiaddrs);
+    console.log('[p2p] Connected peers:', connectedPeers.length, connectedPeers);
+    const filteredMultiaddrs = allMultiaddrs
       .filter((ma) => {
         const lower = ma.toLowerCase();
         return (lower.includes('/ws/') || lower.includes('/wss/') || lower.includes('/webtransport') || lower.includes('/p2p-circuit'))
           && !lower.includes('/ip4/127.') && !lower.includes('/ip4/localhost') && !lower.includes('/ip6/::1');
       });
+    console.log('[p2p] Filtered multiaddrs:', filteredMultiaddrs);
     return { peerId, multiaddrs: filteredMultiaddrs };
   }
 
