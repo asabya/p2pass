@@ -20,6 +20,7 @@ import {
   detectDeviceLabel,
   sendPairingRequest,
   registerLinkDeviceHandler,
+  LINK_DEVICE_PROTOCOL,
 } from './pairing-protocol.js';
 
 export class MultiDeviceManager {
@@ -76,6 +77,8 @@ export class MultiDeviceManager {
   async _finalizeDb() {
     await this._setupSyncListeners();
     if (this._onPairingRequest) {
+      // Unregister existing handler before re-registering (e.g. after DB reopen)
+      try { await this._libp2p.unhandle(LINK_DEVICE_PROTOCOL); } catch { /* not registered */ }
       console.log('[manager] Registering link device handler for peer:', this._libp2p?.peerId?.toString());
       await registerLinkDeviceHandler(
         this._libp2p, this._devicesDb, this._onPairingRequest, this._onDeviceLinked
@@ -93,7 +96,7 @@ export class MultiDeviceManager {
     this._dbAddress = this._devicesDb.address;
 
     await registerDevice(this._devicesDb, {
-      credential_id: this._credential.credentialId,
+      credential_id: this._credential?.credentialId || this._credential?.id || this._libp2p?.peerId?.toString() || 'unknown',
       public_key: this._getPublicKey(),
       device_label: detectDeviceLabel(),
       created_at: Date.now(),
@@ -183,7 +186,8 @@ export class MultiDeviceManager {
       qrPayload.peerId,
       {
         id: this._identity.id,
-        credentialId: this._credential.credentialId,
+        orbitdbIdentityId: this._orbitdb?.identity?.id || null,
+        credentialId: this._credential?.credentialId || this._credential?.id || this._libp2p.peerId.toString(),
         publicKey: null,
         deviceLabel: detectDeviceLabel(),
       },
@@ -203,6 +207,10 @@ export class MultiDeviceManager {
     await this._finalizeDb();
 
     return { type: 'granted', dbAddress: this._dbAddress };
+  }
+
+  getDevicesDb() {
+    return this._devicesDb;
   }
 
   getPeerInfo() {

@@ -81,6 +81,11 @@ export async function registerLinkDeviceHandler(libp2p, db, onRequest, onDeviceL
         if (decision === 'granted') {
           console.log('[pairing] Granting write access for DID:', identity.id);
           await grantDeviceWriteAccess(db, identity.id);
+          // Also grant write access for Device B's OrbitDB identity (may differ from DID)
+          if (identity.orbitdbIdentityId && identity.orbitdbIdentityId !== identity.id) {
+            console.log('[pairing] Granting write access for OrbitDB identity:', identity.orbitdbIdentityId);
+            await grantDeviceWriteAccess(db, identity.orbitdbIdentityId);
+          }
           console.log('[pairing] Write access granted, registering device...');
           const deviceEntry = {
             credential_id: identity.credentialId,
@@ -206,6 +211,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
     type: 'request',
     identity: {
       id: identity.id,
+      orbitdbIdentityId: identity.orbitdbIdentityId || null,
       credentialId: identity.credentialId,
       publicKey: identity.publicKey || null,
       deviceLabel: identity.deviceLabel || detectDeviceLabel(),

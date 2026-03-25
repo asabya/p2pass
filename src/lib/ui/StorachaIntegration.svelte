@@ -8,7 +8,7 @@
 	import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
 	import { IdentityService } from '../identity/identity-service.js';
 	import { createStorachaClient, parseDelegation, storeDelegation, loadStoredDelegation, clearStoredDelegation } from '../ucan/storacha-auth.js';
-	import { openDeviceRegistry, registerDevice, listDevices as listRegistryDevices, getArchiveEntry, listKeypairs } from '../registry/device-registry.js';
+	import { openDeviceRegistry, registerDevice, getDeviceByDID, listDevices as listRegistryDevices, getArchiveEntry, listKeypairs, storeKeypairEntry, storeArchiveEntry, listDelegations, storeDelegationEntry } from '../registry/device-registry.js';
 	import { deriveIPNSKeyPair } from '../recovery/ipns-key.js';
 	import { createManifest, publishManifest, resolveManifest, uploadArchiveToIPFS, fetchArchiveFromIPFS } from '../recovery/manifest.js';
 	import { backupRegistryDb, restoreRegistryDb } from '../backup/registry-backup.js';
@@ -65,6 +65,7 @@
 	// Registry DB state
 	let registryDb = $state(null);
 	const REGISTRY_ADDRESS_KEY = 'p2p_passkeys_registry_address';
+	const OWNER_DID_KEY = 'p2p_passkeys_owner_did';
 
 	// Tab state
 	let activeTab = $state('storacha'); // 'storacha' | 'passkeys'
@@ -76,6 +77,8 @@
 	let isLinking = $state(false);
 	let linkError = $state('');
 	let deviceManager = $state(null);
+	let pendingPairRequest = $state(null);
+	let pendingPairResolve = $state(null);
 
 	// Recovery state
 	let isRecovering = $state(false);
@@ -137,59 +140,52 @@
 		}
 	}
 
+	/**
+	 * Connect Storacha using a delegation string: parse, create client, set up bridge.
+	 * Optionally stores the delegation to registry or localStorage.
+	 */
+	async function connectStoracha(delegationStr, { store = false, storeRegistryDb = null, storeSpaceDid = '' } = {}) {
+		const [delegation, principal] = await Promise.all([
+			parseDelegation(delegationStr),
+			identityService.getPrincipal()
+		]);
+		client = await createStorachaClient(principal, delegation);
+
+		if (store) {
+			const spaceDid = storeSpaceDid || client.currentSpace()?.did?.() || '';
+			await storeDelegation(delegationStr, storeRegistryDb, spaceDid);
+		}
+
+		currentSpace = client.currentSpace();
+		isLoggedIn = true;
+
+		bridge = new OrbitDBStorachaBridge({ ucanClient: client });
+		if (currentSpace) bridge.spaceDID = currentSpace.did();
+		setupBridgeListeners();
+		await loadSpaceUsage();
+	}
+
 	async function handleRecover() {
 		isRecovering = true;
 		recoveryStatus = 'Authenticating with passkey...';
 		try {
-			// Step 1: Recover PRF seed via discoverable credential
 			const recovery = await identityService.initializeFromRecovery();
 			ipnsKeyPair = recovery.ipnsKeyPair;
-			recoveryStatus = 'Resolving IPNS manifest...';
 
-			// Step 2: Resolve manifest from w3name
-			const manifest = await resolveManifest(recovery.ipnsKeyPair.privateKey);
-			if (!manifest) {
-				throw new Error('No recovery manifest found. This identity may not have been backed up yet.');
+			const storedDid = localStorage.getItem(OWNER_DID_KEY);
+			const storedAddr = localStorage.getItem(REGISTRY_ADDRESS_KEY);
+			let recoveredLocally = false;
+
+			if (storedDid && storedAddr) {
+				console.log('[recovery] Attempting local OrbitDB path — DID:', storedDid);
+				recoveredLocally = await recoverFromLocalOrbitDB(storedDid, storedAddr);
+			} else {
+				console.log('[recovery] No local DID/registry cached, using IPNS');
 			}
 
-			// Step 3: Restore DID from IPFS archive (no auth needed — public gateway)
-			if (!manifest.archiveCID) {
-				throw new Error('Manifest has no archiveCID. Cannot restore identity without it.');
-			}
-			recoveryStatus = 'Fetching encrypted archive...';
-			const archiveEntry = await fetchArchiveFromIPFS(manifest.archiveCID);
-			if (!archiveEntry) {
-				throw new Error('Failed to fetch encrypted archive from IPFS.');
-			}
-
-			recoveryStatus = 'Restoring identity...';
-			await identityService.restoreFromManifest(archiveEntry, manifest.ownerDid);
-			signingMode = identityService.getSigningMode();
-
-			// Step 4: Start P2P stack (DID is restored, P2P uses default OrbitDB identity)
-			recoveryStatus = 'Starting P2P stack...';
-			await onAuthenticate(signingMode);
-
-			// Step 5: Connect Storacha directly (skip registry writes — no write access)
-			// The delegation and DID come from the manifest, not the registry.
-			if (manifest.delegation) {
-				recoveryStatus = 'Connecting to Storacha...';
-				const delegation = await parseDelegation(manifest.delegation);
-				const principal = await identityService.getPrincipal();
-				client = await createStorachaClient(principal, delegation);
-
-				// Store delegation in localStorage only (registry not writable)
-				const spaceDid = client.currentSpace()?.did?.() || '';
-				await storeDelegation(manifest.delegation, null, spaceDid);
-
-				currentSpace = client.currentSpace();
-				isLoggedIn = true;
-
-				// Set up bridge
-				bridge = new OrbitDBStorachaBridge({ ucanClient: client });
-				if (currentSpace) bridge.spaceDID = currentSpace.did();
-				setupBridgeListeners();
-				await loadSpaceUsage();
+			if (!recoveredLocally) {
+				console.log('[recovery] Using IPNS/IPFS remote path');
+				await recoverFromIPNS(recovery.ipnsKeyPair);
 			}
 
 			recoveryStatus = '';
@@ -201,6 +197,108 @@
 		} finally {
 			isRecovering = false;
 		}
+	}
+
+	/**
+	 * Local-first recovery: start P2P with default identity, open the local
+	 * OrbitDB registry, and restore the archive without hitting the network.
+	 */
+	async function recoverFromLocalOrbitDB(storedDid, storedAddr) {
+		try {
+			recoveryStatus = 'Starting P2P stack...';
+			await onAuthenticate(null);
+
+			// Wait for Svelte prop propagation with retry
+			let waited = 0;
+			while (!orbitdb && waited < 2000) {
+				await new Promise(r => setTimeout(r, 50));
+				waited += 50;
+			}
+			if (!orbitdb) {
+				console.log('[recovery:local] orbitdb not available after wait');
+				return false;
+			}
+
+			recoveryStatus = 'Opening local registry...';
+			const db = await openDeviceRegistry(orbitdb, storedDid, storedAddr);
+
+			const archiveEntry = await getArchiveEntry(db, storedDid);
+			if (!archiveEntry) {
+				console.log('[recovery:local] No archive in local OrbitDB for DID:', storedDid);
+				return false;
+			}
+
+			recoveryStatus = 'Restoring identity from local registry...';
+			await identityService.restoreFromManifest(archiveEntry, storedDid);
+			signingMode = identityService.getSigningMode();
+			console.log('[recovery:local] DID restored:', signingMode?.did);
+
+			registryDb = db;
+			await identityService.setRegistry(db);
+
+			const stored = await loadStoredDelegation(db);
+			if (stored) {
+				recoveryStatus = 'Connecting to Storacha...';
+				await connectStoracha(stored);
+			}
+
+			console.log('[recovery:local] Succeeded — no network needed');
+			return true;
+		} catch (err) {
+			console.warn('[recovery:local] Failed:', err.message);
+			return false;
+		}
+	}
+
+	/**
+	 * IPNS/IPFS fallback recovery: resolve the manifest from w3name,
+	 * fetch the encrypted archive from the gateway, and restore.
+	 * Stores the DID in localStorage for future local recoveries.
+	 */
+	async function recoverFromIPNS(ipnsKP) {
+		recoveryStatus = 'Resolving IPNS manifest...';
+		const manifest = await resolveManifest(ipnsKP.privateKey);
+		if (!manifest) {
+			throw new Error('No recovery manifest found. This identity may not have been backed up yet.');
+		}
+		console.log('[recovery:ipns] Manifest resolved — ownerDid:', manifest.ownerDid);
+
+		if (!manifest.archiveCID) {
+			throw new Error('Manifest has no archiveCID. Cannot restore identity without it.');
+		}
+		recoveryStatus = 'Fetching encrypted archive...';
+		const archiveEntry = await fetchArchiveFromIPFS(manifest.archiveCID);
+		if (!archiveEntry) {
+			throw new Error('Failed to fetch encrypted archive from IPFS.');
+		}
+
+		recoveryStatus = 'Restoring identity...';
+		await identityService.restoreFromManifest(archiveEntry, manifest.ownerDid);
+		signingMode = identityService.getSigningMode();
+		console.log('[recovery:ipns] DID restored:', signingMode?.did);
+
+		// Only persist DID — registry address is stored when OrbitDB is actually opened
+		localStorage.setItem(OWNER_DID_KEY, manifest.ownerDid);
+
+		recoveryStatus = 'Starting P2P stack...';
+		await onAuthenticate(signingMode);
+
+		// Wait for orbitdb prop to propagate from parent
+		let waited = 0;
+		while (!orbitdb && waited < 2000) {
+			await new Promise(r => setTimeout(r, 50));
+			waited += 50;
+		}
+
+		// Open registry DB so address gets persisted for future local recovery
+		await initRegistryDb();
+
+		if (manifest.delegation) {
+			recoveryStatus = 'Connecting to Storacha...';
+			await connectStoracha(manifest.delegation, { store: true, storeRegistryDb: registryDb });
+		}
+
+		console.log('[recovery:ipns] Succeeded — DID + registry address cached for future local recovery');
 	}
 
 	async function handlePublishManifest() {
@@ -243,9 +341,35 @@
 
 			const result = await publishManifest(client, ipnsKeyPair.privateKey, manifest);
 			ipnsNameString = result.nameString;
+
+			// Persist DID for future local-first recovery
+			localStorage.setItem(OWNER_DID_KEY, signingMode.did);
+
 			console.log('[ui] Manifest published:', result.nameString);
 		} catch (err) {
 			console.warn('[ui] Failed to publish manifest:', err.message);
+		}
+	}
+
+	async function selfRegisterDevice() {
+		if (!registryDb || !signingMode?.did) return;
+		try {
+			const existing = await getDeviceByDID(registryDb, signingMode.did);
+			if (existing) return;
+			const credential = loadWebAuthnCredentialSafe();
+			await registerDevice(registryDb, {
+				credential_id: credential?.credentialId || credential?.id || libp2p?.peerId?.toString() || signingMode.did,
+				public_key: credential?.publicKey?.x && credential?.publicKey?.y
+					? { kty: 'EC', crv: 'P-256', x: credential.publicKey.x, y: credential.publicKey.y }
+					: null,
+				device_label: detectDeviceLabel(),
+				created_at: Date.now(),
+				status: 'active',
+				ed25519_did: signingMode.did
+			});
+			console.log('[ui] Self-registered device in registry');
+		} catch (err) {
+			console.warn('[ui] Failed to self-register device:', err.message);
 		}
 	}
 
@@ -257,9 +381,11 @@
 
 			const addr = registryDb.address?.toString?.() || registryDb.address;
 			if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+			localStorage.setItem(OWNER_DID_KEY, signingMode.did);
 
 			await identityService.setRegistry(registryDb);
-			console.log('[ui] Registry DB initialized:', addr);
+			await selfRegisterDevice();
+			console.log('[ui] Registry DB initialized:', addr, '— DID persisted:', signingMode.did);
 			await initDeviceManager();
 		} catch (err) {
 			// If a stored address exists but we can't write, it's from a different identity.
@@ -272,8 +398,10 @@
 					registryDb = await openDeviceRegistry(orbitdb, signingMode.did, null);
 					const addr = registryDb.address?.toString?.() || registryDb.address;
 					if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+					localStorage.setItem(OWNER_DID_KEY, signingMode.did);
 					await identityService.setRegistry(registryDb);
-					console.log('[ui] New registry DB created:', addr);
+					await selfRegisterDevice();
+					console.log('[ui] New registry DB created:', addr, '— DID persisted:', signingMode.did);
 					await initDeviceManager();
 					return;
 				} catch (retryErr) {
@@ -293,6 +421,14 @@
 				orbitdb,
 				libp2p,
 				identity: { id: signingMode.did },
+				onPairingRequest: async (request) => {
+					console.log('[p2p] Pairing request from:', request?.identity?.id || request?.identity?.deviceLabel);
+					activeTab = 'passkeys';
+					return new Promise((resolve) => {
+						pendingPairRequest = request;
+						pendingPairResolve = resolve;
+					});
+				},
 				onDeviceLinked: (device) => {
 					devices = devices.filter(d => d.ed25519_did !== device.ed25519_did);
 					devices = [...devices, device];
@@ -303,20 +439,6 @@
 			});
 			const dbAddr = registryDb.address?.toString?.() || registryDb.address;
 			if (dbAddr) await deviceManager.openExistingDb(dbAddr);
-
-			// Self-register this device if not already in registry
-			if (credential) {
-				await registerDevice(registryDb, {
-					credential_id: credential.credentialId || credential.id || libp2p.peerId.toString(),
-					public_key: credential.publicKey?.x && credential.publicKey?.y
-						? { kty: 'EC', crv: 'P-256', x: credential.publicKey.x, y: credential.publicKey.y }
-						: null,
-					device_label: detectDeviceLabel(),
-					created_at: Date.now(),
-					status: 'active',
-					ed25519_did: signingMode.did
-				});
-			}
 
 			devices = await deviceManager.listDevices();
 			peerInfo = deviceManager.getPeerInfo();
@@ -338,13 +460,57 @@
 	}
 
 	function handleCopyPeerInfo() {
-		const info = peerInfo || (libp2p ? {
-			peerId: libp2p.peerId.toString(),
-			multiaddrs: libp2p.getMultiaddrs().map(ma => ma.toString())
-		} : null);
-		if (!info) return;
-		navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+		// Always get fresh multiaddrs — relay reservations arrive asynchronously
+		if (deviceManager) {
+			peerInfo = deviceManager.getPeerInfo();
+		} else if (libp2p) {
+			peerInfo = {
+				peerId: libp2p.peerId.toString(),
+				multiaddrs: libp2p.getMultiaddrs().map(ma => ma.toString())
+			};
+		}
+		if (!peerInfo) return;
+		navigator.clipboard.writeText(JSON.stringify(peerInfo, null, 2));
 		showMessage('Peer info copied to clipboard!');
+	}
+
+	async function migrateRegistryEntries(oldDb, newDb, did) {
+		// Read all entries from old DB once (stable — not being written to during migration)
+		const keypairs = await listKeypairs(oldDb);
+		const archive = await getArchiveEntry(oldDb, did);
+		const delegations = await listDelegations(oldDb);
+
+		if (keypairs.length === 0 && !archive && delegations.length === 0) {
+			console.log('[ui] No entries to migrate');
+			return true;
+		}
+
+		// Retry writes until ACL grant propagates from Device A
+		const maxWait = 120000;
+		const start = Date.now();
+		while (Date.now() - start < maxWait) {
+			try {
+				for (const kp of keypairs) {
+					await storeKeypairEntry(newDb, kp.did, kp.publicKey);
+				}
+				if (archive) {
+					await storeArchiveEntry(newDb, did, archive.ciphertext, archive.iv);
+				}
+				for (const d of delegations) {
+					await storeDelegationEntry(newDb, d.delegation, d.space_did);
+				}
+				console.log('[ui] Registry migration complete after', Date.now() - start, 'ms');
+				return true;
+			} catch (err) {
+				if (!err.message?.includes('not allowed to write')) {
+					console.warn('[ui] Registry migration error:', err.message);
+					return false;
+				}
+			}
+			await new Promise(r => setTimeout(r, 1000));
+		}
+		console.warn('[ui] Registry migration timed out waiting for write access');
+		return false;
 	}
 
 	async function handleLinkDevice() {
@@ -355,6 +521,23 @@
 			const payload = JSON.parse(linkInput.trim());
 			const result = await deviceManager.linkToDevice(payload);
 			if (result.type === 'granted') {
+				const sharedAddr = result.dbAddress?.toString?.() || result.dbAddress;
+
+				// Migrate Device B's entries to the shared registry before switching
+				let migrated = false;
+				if (registryDb && deviceManager.getDevicesDb() && signingMode?.did) {
+					const sharedDb = deviceManager.getDevicesDb();
+					console.log('[ui] Migrating entries from old registry to shared registry...');
+					migrated = await migrateRegistryEntries(registryDb, sharedDb, signingMode.did);
+				}
+
+				// Only switch to shared registry if migration succeeded
+				if (migrated && sharedAddr) {
+					localStorage.setItem(REGISTRY_ADDRESS_KEY, sharedAddr);
+					console.log('[ui] Persisted shared registry address from Device A:', sharedAddr);
+				} else if (!migrated) {
+					console.warn('[ui] Keeping old registry address — migration did not complete');
+				}
 				showMessage('Device linked successfully!');
 				linkInput = '';
 				devices = await deviceManager.listDevices();
@@ -365,6 +548,14 @@
 			linkError = `Failed to link: ${err.message}`;
 		} finally {
 			isLinking = false;
+		}
+	}
+
+	function handlePairDecision(decision) {
+		if (pendingPairResolve) {
+			pendingPairResolve(decision);
+			pendingPairResolve = null;
+			pendingPairRequest = null;
 		}
 	}
 
@@ -385,31 +576,8 @@
 	}
 
 	async function handleConnectWithDelegation(delegationStr) {
-		const delegation = await parseDelegation(delegationStr);
-		const principal = await identityService.getPrincipal();
-		client = await createStorachaClient(principal, delegation);
-
-		// Store delegation in registry DB (or localStorage fallback)
-		const spaceDid = client.currentSpace()?.did?.() || '';
-		await storeDelegation(delegationStr, registryDb, spaceDid);
-
-		currentSpace = client.currentSpace();
-		isLoggedIn = true;
-
-		// Initialize bridge for backup/restore
-		// For UCAN mode, pass the client directly
-		bridge = new OrbitDBStorachaBridge({ ucanClient: client });
-		if (currentSpace) {
-			bridge.spaceDID = currentSpace.did();
-		}
-
-		// Set up progress listeners on bridge
-		setupBridgeListeners();
-
-		await loadSpaceUsage();
+		await connectStoracha(delegationStr, { store: true, storeRegistryDb: registryDb });
 		showMessage('Connected to Storacha via UCAN delegation!');
-
-		// Publish/update IPNS manifest
 		await handlePublishManifest();
 	}
 
@@ -621,6 +789,43 @@
 		// Don't auto-connect — user must click "Authenticate" which may prompt biometric
 	});
 </script>
+
+{#snippet pairingApprovalPrompt()}
+{#if pendingPairRequest}
+<div style="border-radius: 0.375rem; border: 2px solid #FFC83F; background: linear-gradient(to bottom right, #ffffff, #FFF8E1); padding: 1rem; box-shadow: 0 4px 12px rgba(233, 19, 21, 0.15);">
+	<h4 style="margin: 0 0 0.5rem 0; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
+		Device Pairing Request
+	</h4>
+	<p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
+		A device wants to link to your account:
+	</p>
+	<div style="background: rgba(233, 19, 21, 0.04); border-radius: 0.25rem; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;">
+		<div style="font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif;">
+			<strong>Device:</strong> {pendingPairRequest.identity?.deviceLabel || 'Unknown'}
+		</div>
+		<div style="font-size: 0.65rem; color: #9ca3af; font-family: 'DM Mono', monospace; margin-top: 0.25rem; word-break: break-all;">
+			{pendingPairRequest.identity?.id
+				? pendingPairRequest.identity.id.slice(0, 20) + '...' + pendingPairRequest.identity.id.slice(-8)
+				: 'N/A'}
+		</div>
+	</div>
+	<div style="display: flex; gap: 0.5rem;">
+		<button
+			onclick={() => handlePairDecision('granted')}
+			style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+		>
+			Approve
+		</button>
+		<button
+			onclick={() => handlePairDecision('rejected')}
+			style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
+		>
+			Deny
+		</button>
+	</div>
+</div>
+{/if}
+{/snippet}
 
 <div
 	class="storacha-panel"
@@ -910,6 +1115,7 @@
 							</div>
 						</div>
 
+						{#if activeTab !== 'passkeys'}
 						<!-- Delegation Import -->
 						<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #EFE3F3); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);">
 							<h4 style="margin-bottom: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
@@ -944,6 +1150,43 @@
 								</button>
 							</div>
 						</div>
+						{:else}
+						<!-- Link Device (peer info paste) -->
+						<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);">
+							<h4 style="margin-bottom: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;">
+								Link Another Device
+							</h4>
+							<p style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;">
+								Paste the peer info JSON from another device to link it.
+							</p>
+							<div style="display: flex; flex-direction: column; gap: 0.75rem;">
+								<textarea
+									bind:value={linkInput}
+									placeholder='Paste peer info JSON here...'
+									rows="4"
+									style="width: 100%; resize: none; border-radius: 0.375rem; border: 1px solid #E91315; background-color: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
+								></textarea>
+								{#if linkError}
+									<div style="font-size: 0.7rem; color: #dc2626; font-family: 'DM Sans', sans-serif;">{linkError}</div>
+								{/if}
+								<button
+									onclick={handleLinkDevice}
+									disabled={isLinking || !linkInput.trim()}
+									style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {isLinking || !linkInput.trim() ? '0.5' : '1'}; box-sizing: border-box;"
+								>
+									{#if isLinking}
+										<Loader2 style="height: 1rem; width: 1rem; animation: spin 1s linear infinite;" />
+										<span>Linking...</span>
+									{:else}
+										<svg style="height: 1rem; width: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+										</svg>
+										<span>Link Device</span>
+									{/if}
+								</button>
+							</div>
+						</div>
+						{/if}
 					</div>
 				{/if}
 
@@ -994,6 +1237,8 @@
 							</div>
 						{/if}
 					</div>
+
+					{@render pairingApprovalPrompt()}
 
 					<!-- Linked Devices List -->
 					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">
@@ -1276,6 +1521,8 @@
 							{/if}
 						</div>
 					{/if}
+
+					{@render pairingApprovalPrompt()}
 
 					<!-- Linked Devices List -->
 					<div style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 0.75rem;">

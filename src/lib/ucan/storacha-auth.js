@@ -101,12 +101,16 @@ export async function parseDelegation(proofString) {
  */
 export async function storeDelegation(delegationBase64, registryDb, spaceDid) {
 	if (registryDb) {
-		await storeDelegationEntry(registryDb, delegationBase64, spaceDid);
-		console.log('[storacha] Delegation stored in registry DB');
-	} else {
-		localStorage.setItem(STORAGE_KEY_DELEGATION, delegationBase64);
-		console.log('[storacha] Delegation stored in localStorage (no registry)');
+		try {
+			await storeDelegationEntry(registryDb, delegationBase64, spaceDid);
+			console.log('[storacha] Delegation stored in registry DB');
+			return;
+		} catch (err) {
+			console.warn('[storacha] Registry write failed, falling back to localStorage:', err.message);
+		}
 	}
+	localStorage.setItem(STORAGE_KEY_DELEGATION, delegationBase64);
+	console.log('[storacha] Delegation stored in localStorage');
 }
 
 /**
@@ -120,15 +124,16 @@ export async function loadStoredDelegation(registryDb) {
 	if (registryDb) {
 		const delegations = await listDelegations(registryDb);
 		if (delegations.length > 0) {
-			// Return the most recent delegation
 			const sorted = delegations.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 			console.log('[storacha] Loaded delegation from registry DB');
 			return sorted[0].delegation;
 		}
-		return null;
+		// Registry exists but has no delegations — fall through to localStorage
 	}
 
-	return localStorage.getItem(STORAGE_KEY_DELEGATION);
+	const local = localStorage.getItem(STORAGE_KEY_DELEGATION);
+	if (local) console.log('[storacha] Loaded delegation from localStorage');
+	return local;
 }
 
 /**
