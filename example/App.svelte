@@ -61,7 +61,7 @@
 	}
 
 	async function handleAuthenticate(signingMode) {
-		console.log('[app] User authenticated:', signingMode.did);
+		console.log('[app] User authenticated:', signingMode?.did ?? '(default identity)');
 		// Start full P2P stack with OrbitDB (default identity, no WebAuthn credential needed)
 		if (!p2pStack) {
 			if (libp2p && !orbitdb) { await libp2p.stop(); libp2p = null; }

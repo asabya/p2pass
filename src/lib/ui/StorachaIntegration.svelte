@@ -65,6 +65,7 @@
 	// Registry DB state
 	let registryDb = $state(null);
 	const REGISTRY_ADDRESS_KEY = 'p2p_passkeys_registry_address';
+	const OWNER_DID_KEY = 'p2p_passkeys_owner_did';
 
 	// Tab state
 	let activeTab = $state('storacha'); // 'storacha' | 'passkeys'
@@ -137,59 +138,52 @@
 		}
 	}
 
+	/**
+	 * Connect Storacha using a delegation string: parse, create client, set up bridge.
+	 * Optionally stores the delegation to registry or localStorage.
+	 */
+	async function connectStoracha(delegationStr, { store = false, storeRegistryDb = null, storeSpaceDid = '' } = {}) {
+		const [delegation, principal] = await Promise.all([
+			parseDelegation(delegationStr),
+			identityService.getPrincipal()
+		]);
+		client = await createStorachaClient(principal, delegation);
+
+		if (store) {
+			const spaceDid = storeSpaceDid || client.currentSpace()?.did?.() || '';
+			await storeDelegation(delegationStr, storeRegistryDb, spaceDid);
+		}
+
+		currentSpace = client.currentSpace();
+		isLoggedIn = true;
+
+		bridge = new OrbitDBStorachaBridge({ ucanClient: client });
+		if (currentSpace) bridge.spaceDID = currentSpace.did();
+		setupBridgeListeners();
+		await loadSpaceUsage();
+	}
+
 	async function handleRecover() {
 		isRecovering = true;
 		recoveryStatus = 'Authenticating with passkey...';
 		try {
-			// Step 1: Recover PRF seed via discoverable credential
 			const recovery = await identityService.initializeFromRecovery();
 			ipnsKeyPair = recovery.ipnsKeyPair;
-			recoveryStatus = 'Resolving IPNS manifest...';
 
-			// Step 2: Resolve manifest from w3name
-			const manifest = await resolveManifest(recovery.ipnsKeyPair.privateKey);
-			if (!manifest) {
-				throw new Error('No recovery manifest found. This identity may not have been backed up yet.');
+			const storedDid = localStorage.getItem(OWNER_DID_KEY);
+			const storedAddr = localStorage.getItem(REGISTRY_ADDRESS_KEY);
+			let recoveredLocally = false;
+
+			if (storedDid && storedAddr) {
+				console.log('[recovery] Attempting local OrbitDB path — DID:', storedDid);
+				recoveredLocally = await recoverFromLocalOrbitDB(storedDid, storedAddr);
+			} else {
+				console.log('[recovery] No local DID/registry cached, using IPNS');
 			}
 
-			// Step 3: Restore DID from IPFS archive (no auth needed — public gateway)
-			if (!manifest.archiveCID) {
-				throw new Error('Manifest has no archiveCID. Cannot restore identity without it.');
-			}
-			recoveryStatus = 'Fetching encrypted archive...';
-			const archiveEntry = await fetchArchiveFromIPFS(manifest.archiveCID);
-			if (!archiveEntry) {
-				throw new Error('Failed to fetch encrypted archive from IPFS.');
-			}
-
-			recoveryStatus = 'Restoring identity...';
-			await identityService.restoreFromManifest(archiveEntry, manifest.ownerDid);
-			signingMode = identityService.getSigningMode();
-
-			// Step 4: Start P2P stack (DID is restored, P2P uses default OrbitDB identity)
-			recoveryStatus = 'Starting P2P stack...';
-			await onAuthenticate(signingMode);
-
-			// Step 5: Connect Storacha directly (skip registry writes — no write access)
-			// The delegation and DID come from the manifest, not the registry.
-			if (manifest.delegation) {
-				recoveryStatus = 'Connecting to Storacha...';
-				const delegation = await parseDelegation(manifest.delegation);
-				const principal = await identityService.getPrincipal();
-				client = await createStorachaClient(principal, delegation);
-
-				// Store delegation in localStorage only (registry not writable)
-				const spaceDid = client.currentSpace()?.did?.() || '';
-				await storeDelegation(manifest.delegation, null, spaceDid);
-
-				currentSpace = client.currentSpace();
-				isLoggedIn = true;
-
-				// Set up bridge
-				bridge = new OrbitDBStorachaBridge({ ucanClient: client });
-				if (currentSpace) bridge.spaceDID = currentSpace.did();
-				setupBridgeListeners();
-				await loadSpaceUsage();
+			if (!recoveredLocally) {
+				console.log('[recovery] Using IPNS/IPFS remote path');
+				await recoverFromIPNS(recovery.ipnsKeyPair);
 			}
 
 			recoveryStatus = '';
@@ -201,6 +195,98 @@
 		} finally {
 			isRecovering = false;
 		}
+	}
+
+	/**
+	 * Local-first recovery: start P2P with default identity, open the local
+	 * OrbitDB registry, and restore the archive without hitting the network.
+	 */
+	async function recoverFromLocalOrbitDB(storedDid, storedAddr) {
+		try {
+			recoveryStatus = 'Starting P2P stack...';
+			await onAuthenticate(null);
+
+			// Wait for Svelte prop propagation with retry
+			let waited = 0;
+			while (!orbitdb && waited < 2000) {
+				await new Promise(r => setTimeout(r, 50));
+				waited += 50;
+			}
+			if (!orbitdb) {
+				console.log('[recovery:local] orbitdb not available after wait');
+				return false;
+			}
+
+			recoveryStatus = 'Opening local registry...';
+			const db = await openDeviceRegistry(orbitdb, storedDid, storedAddr);
+
+			const archiveEntry = await getArchiveEntry(db, storedDid);
+			if (!archiveEntry) {
+				console.log('[recovery:local] No archive in local OrbitDB for DID:', storedDid);
+				return false;
+			}
+
+			recoveryStatus = 'Restoring identity from local registry...';
+			await identityService.restoreFromManifest(archiveEntry, storedDid);
+			signingMode = identityService.getSigningMode();
+			console.log('[recovery:local] DID restored:', signingMode?.did);
+
+			registryDb = db;
+			await identityService.setRegistry(db);
+
+			const stored = await loadStoredDelegation(db);
+			if (stored) {
+				recoveryStatus = 'Connecting to Storacha...';
+				await connectStoracha(stored);
+			}
+
+			console.log('[recovery:local] Succeeded — no network needed');
+			return true;
+		} catch (err) {
+			console.warn('[recovery:local] Failed:', err.message);
+			return false;
+		}
+	}
+
+	/**
+	 * IPNS/IPFS fallback recovery: resolve the manifest from w3name,
+	 * fetch the encrypted archive from the gateway, and restore.
+	 * Stores the DID in localStorage for future local recoveries.
+	 */
+	async function recoverFromIPNS(ipnsKP) {
+		recoveryStatus = 'Resolving IPNS manifest...';
+		const manifest = await resolveManifest(ipnsKP.privateKey);
+		if (!manifest) {
+			throw new Error('No recovery manifest found. This identity may not have been backed up yet.');
+		}
+		console.log('[recovery:ipns] Manifest resolved — ownerDid:', manifest.ownerDid);
+
+		if (!manifest.archiveCID) {
+			throw new Error('Manifest has no archiveCID. Cannot restore identity without it.');
+		}
+		recoveryStatus = 'Fetching encrypted archive...';
+		const archiveEntry = await fetchArchiveFromIPFS(manifest.archiveCID);
+		if (!archiveEntry) {
+			throw new Error('Failed to fetch encrypted archive from IPFS.');
+		}
+
+		recoveryStatus = 'Restoring identity...';
+		await identityService.restoreFromManifest(archiveEntry, manifest.ownerDid);
+		signingMode = identityService.getSigningMode();
+		console.log('[recovery:ipns] DID restored:', signingMode?.did);
+
+		// Only persist DID — registry address is stored when OrbitDB is actually opened
+		localStorage.setItem(OWNER_DID_KEY, manifest.ownerDid);
+
+		recoveryStatus = 'Starting P2P stack...';
+		await onAuthenticate(signingMode);
+
+		if (manifest.delegation) {
+			recoveryStatus = 'Connecting to Storacha...';
+			await connectStoracha(manifest.delegation, { store: true });
+		}
+
+		console.log('[recovery:ipns] Succeeded — DID cached for future local recovery');
 	}
 
 	async function handlePublishManifest() {
@@ -243,6 +329,10 @@
 
 			const result = await publishManifest(client, ipnsKeyPair.privateKey, manifest);
 			ipnsNameString = result.nameString;
+
+			// Persist DID for future local-first recovery
+			localStorage.setItem(OWNER_DID_KEY, signingMode.did);
+
 			console.log('[ui] Manifest published:', result.nameString);
 		} catch (err) {
 			console.warn('[ui] Failed to publish manifest:', err.message);
@@ -257,9 +347,10 @@
 
 			const addr = registryDb.address?.toString?.() || registryDb.address;
 			if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+			localStorage.setItem(OWNER_DID_KEY, signingMode.did);
 
 			await identityService.setRegistry(registryDb);
-			console.log('[ui] Registry DB initialized:', addr);
+			console.log('[ui] Registry DB initialized:', addr, '— DID persisted:', signingMode.did);
 			await initDeviceManager();
 		} catch (err) {
 			// If a stored address exists but we can't write, it's from a different identity.
@@ -272,8 +363,9 @@
 					registryDb = await openDeviceRegistry(orbitdb, signingMode.did, null);
 					const addr = registryDb.address?.toString?.() || registryDb.address;
 					if (addr) localStorage.setItem(REGISTRY_ADDRESS_KEY, addr);
+					localStorage.setItem(OWNER_DID_KEY, signingMode.did);
 					await identityService.setRegistry(registryDb);
-					console.log('[ui] New registry DB created:', addr);
+					console.log('[ui] New registry DB created:', addr, '— DID persisted:', signingMode.did);
 					await initDeviceManager();
 					return;
 				} catch (retryErr) {
@@ -385,31 +477,8 @@
 	}
 
 	async function handleConnectWithDelegation(delegationStr) {
-		const delegation = await parseDelegation(delegationStr);
-		const principal = await identityService.getPrincipal();
-		client = await createStorachaClient(principal, delegation);
-
-		// Store delegation in registry DB (or localStorage fallback)
-		const spaceDid = client.currentSpace()?.did?.() || '';
-		await storeDelegation(delegationStr, registryDb, spaceDid);
-
-		currentSpace = client.currentSpace();
-		isLoggedIn = true;
-
-		// Initialize bridge for backup/restore
-		// For UCAN mode, pass the client directly
-		bridge = new OrbitDBStorachaBridge({ ucanClient: client });
-		if (currentSpace) {
-			bridge.spaceDID = currentSpace.did();
-		}
-
-		// Set up progress listeners on bridge
-		setupBridgeListeners();
-
-		await loadSpaceUsage();
+		await connectStoracha(delegationStr, { store: true, storeRegistryDb: registryDb });
 		showMessage('Connected to Storacha via UCAN delegation!');
-
-		// Publish/update IPNS manifest
 		await handlePublishManifest();
 	}
 
