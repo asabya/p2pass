@@ -34,7 +34,7 @@ jobs:
 
       # Install root dependencies (for building library + demo)
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       # Build the library (needed by demo)
       - name: Build library
@@ -43,7 +43,7 @@ jobs:
       # Build Docusaurus docs
       - name: Install docs dependencies
         working-directory: docs-site
-        run: npm ci
+        run: npm install
 
       - name: Build docs
         working-directory: docs-site
