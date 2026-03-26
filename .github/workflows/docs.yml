@@ -9,6 +9,7 @@ on:
       - 'docs/index.html'
       - 'src/lib/**'
       - 'examples/svelte/**'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
