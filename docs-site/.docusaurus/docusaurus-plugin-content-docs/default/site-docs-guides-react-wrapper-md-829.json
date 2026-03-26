@@ -1,0 +1,27 @@
+{
+  "id": "guides/react-wrapper",
+  "title": "React Wrapper",
+  "description": "The library provides React wrapper components that mount the existing Svelte widget into a DOM node.",
+  "source": "@site/docs/guides/react-wrapper.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/react-wrapper",
+  "permalink": "/p2p-passkeys/guide/docs/guides/react-wrapper",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/asabya/p2p-passkeys/tree/master/docs-site/docs/guides/react-wrapper.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "Storacha Backup",
+    "permalink": "/p2p-passkeys/guide/docs/architecture/storacha-backup"
+  },
+  "next": {
+    "title": "Multi-Device Linking",
+    "permalink": "/p2p-passkeys/guide/docs/guides/device-linking"
+  }
+}

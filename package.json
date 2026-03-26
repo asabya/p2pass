@@ -10,6 +10,8 @@
 		"build:svelte": "vite build --config examples/svelte/vite.config.js",
 		"dev:react": "vite --config examples/react/vite.config.js",
 		"build:react": "vite build --config examples/react/vite.config.js",
+		"build:docs": "cd docs-site && npm run build && rm -rf ../docs/guide && cp -r build ../docs/guide",
+		"build:demo": "BASE_URL=/p2p-passkeys/demo/ vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"package": "svelte-package && publint",

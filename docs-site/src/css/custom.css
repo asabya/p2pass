@@ -1,0 +1,28 @@
+:root {
+  --ifm-color-primary: #E91315;
+  --ifm-color-primary-dark: #d11113;
+  --ifm-color-primary-darker: #c51012;
+  --ifm-color-primary-darkest: #a20d0f;
+  --ifm-color-primary-light: #eb2b2d;
+  --ifm-color-primary-lighter: #ed3739;
+  --ifm-color-primary-lightest: #f15c5e;
+  --ifm-font-family-base: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --ifm-heading-font-family: 'Epilogue', system-ui, -apple-system, sans-serif;
+  --ifm-font-family-monospace: 'DM Mono', monospace;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(233, 19, 21, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #FFC83F;
+  --ifm-color-primary-dark: #ffbf26;
+  --ifm-color-primary-darker: #ffbb19;
+  --ifm-color-primary-darkest: #e5a400;
+  --ifm-color-primary-light: #ffcf56;
+  --ifm-color-primary-lighter: #ffd363;
+  --ifm-color-primary-lightest: #ffdf89;
+  --ifm-background-color: #0c0a09;
+  --ifm-background-surface-color: #1c1917;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Epilogue:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');

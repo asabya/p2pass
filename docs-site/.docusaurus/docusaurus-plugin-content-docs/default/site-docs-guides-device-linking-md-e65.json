@@ -1,0 +1,27 @@
+{
+  "id": "guides/device-linking",
+  "title": "Multi-Device Linking",
+  "description": "Link multiple devices to share the same identity and OrbitDB registry over libp2p.",
+  "source": "@site/docs/guides/device-linking.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/device-linking",
+  "permalink": "/p2p-passkeys/guide/docs/guides/device-linking",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/asabya/p2p-passkeys/tree/master/docs-site/docs/guides/device-linking.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2
+  },
+  "sidebar": "docsSidebar",
+  "previous": {
+    "title": "React Wrapper",
+    "permalink": "/p2p-passkeys/guide/docs/guides/react-wrapper"
+  },
+  "next": {
+    "title": "API Reference",
+    "permalink": "/p2p-passkeys/guide/docs/api-reference"
+  }
+}

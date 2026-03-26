@@ -1,0 +1,887 @@
+{
+  "entrypoints": [
+    "main"
+  ],
+  "origins": {
+    "165": [
+      2076,
+      7928,
+      9311,
+      165
+    ],
+    "504": [
+      697,
+      2076,
+      2334,
+      504
+    ],
+    "697": [
+      504,
+      2076,
+      2334,
+      4070,
+      7367,
+      8021,
+      697
+    ],
+    "859": [
+      2076,
+      4377,
+      9169,
+      859
+    ],
+    "878": [
+      878
+    ],
+    "1031": [
+      2076,
+      1031
+    ],
+    "1679": [
+      2076,
+      1679
+    ],
+    "2038": [
+      2076,
+      2038
+    ],
+    "2130": [
+      2130
+    ],
+    "2237": [
+      2237
+    ],
+    "2279": [
+      2279
+    ],
+    "2334": [
+      504,
+      697,
+      2076,
+      4070,
+      8021,
+      2334
+    ],
+    "2588": [
+      2076,
+      2588
+    ],
+    "2850": [
+      2850
+    ],
+    "3201": [
+      3201
+    ],
+    "4070": [
+      697,
+      2076,
+      2334,
+      8021,
+      4070
+    ],
+    "4293": [
+      2076,
+      8021,
+      4293
+    ],
+    "4377": [
+      859,
+      2076,
+      4377
+    ],
+    "4736": [
+      4736
+    ],
+    "5187": [
+      5187
+    ],
+    "5359": [
+      5359
+    ],
+    "5378": [
+      2076,
+      5378
+    ],
+    "5447": [
+      2076,
+      5447
+    ],
+    "5518": [
+      2076,
+      5518
+    ],
+    "5895": [
+      2076,
+      5895
+    ],
+    "5944": [
+      5944
+    ],
+    "5982": [
+      5982
+    ],
+    "6235": [
+      6235
+    ],
+    "6427": [
+      6427
+    ],
+    "6500": [
+      6500
+    ],
+    "6550": [
+      6550
+    ],
+    "7333": [
+      7333
+    ],
+    "7367": [
+      697,
+      2076,
+      7367
+    ],
+    "7598": [
+      2076,
+      7598
+    ],
+    "7928": [
+      165,
+      7928
+    ],
+    "7999": [
+      2076,
+      7999
+    ],
+    "8021": [
+      697,
+      2076,
+      2334,
+      4070,
+      4293,
+      8021
+    ],
+    "8335": [
+      2076,
+      8335
+    ],
+    "8644": [
+      8644
+    ],
+    "8659": [
+      2076,
+      8659
+    ],
+    "8811": [
+      2076,
+      8811
+    ],
+    "8894": [
+      2076,
+      8894
+    ],
+    "9169": [
+      859,
+      2076,
+      9169
+    ],
+    "9311": [
+      165,
+      2076,
+      9311
+    ],
+    "17896441": [
+      1869,
+      2076,
+      8401
+    ],
+    "56612376": [
+      2076,
+      3447
+    ],
+    "main": [
+      1869,
+      5354,
+      8792
+    ],
+    "runtime~main": [
+      1869,
+      8792,
+      5354
+    ],
+    "0e384e19": [
+      2076,
+      3976
+    ],
+    "130b57f5": [
+      6418
+    ],
+    "1df93b7f": [
+      4583
+    ],
+    "408522b1": [
+      2076,
+      9589
+    ],
+    "5e95c892": [
+      9647
+    ],
+    "6de1eb58": [
+      2076,
+      9945
+    ],
+    "829b9793": [
+      2076,
+      244
+    ],
+    "964ae018": [
+      2076,
+      7443
+    ],
+    "a7456010": [
+      1235
+    ],
+    "a7bd4aaa": [
+      7098
+    ],
+    "a94703ab": [
+      1869,
+      9048
+    ],
+    "aba21aa0": [
+      5742
+    ],
+    "d589d3a7": [
+      2076,
+      7924
+    ],
+    "e659d9ad": [
+      2076,
+      2442
+    ],
+    "styles": [
+      2076,
+      5354,
+      8401,
+      8792,
+      9048,
+      1869
+    ],
+    "common": [
+      165,
+      244,
+      504,
+      697,
+      859,
+      1031,
+      1679,
+      1869,
+      2038,
+      2334,
+      2442,
+      2588,
+      3447,
+      3976,
+      4070,
+      4293,
+      4377,
+      5378,
+      5447,
+      5518,
+      5895,
+      7367,
+      7443,
+      7598,
+      7924,
+      7999,
+      8021,
+      8335,
+      8401,
+      8659,
+      8811,
+      8894,
+      9169,
+      9311,
+      9589,
+      9945,
+      2076
+    ]
+  },
+  "assets": {
+    "165": {
+      "js": [
+        {
+          "file": "assets/js/165.86bf9413.js",
+          "hash": "481979c642b86f58",
+          "publicPath": "/p2p-passkeys/guide/assets/js/165.86bf9413.js"
+        }
+      ]
+    },
+    "244": {
+      "js": [
+        {
+          "file": "assets/js/829b9793.d65daa11.js",
+          "hash": "2302c5c0e57cfbf4",
+          "publicPath": "/p2p-passkeys/guide/assets/js/829b9793.d65daa11.js"
+        }
+      ]
+    },
+    "504": {
+      "js": [
+        {
+          "file": "assets/js/504.38255bcc.js",
+          "hash": "108d0ce1d5cf97f4",
+          "publicPath": "/p2p-passkeys/guide/assets/js/504.38255bcc.js"
+        }
+      ]
+    },
+    "697": {
+      "js": [
+        {
+          "file": "assets/js/697.56769005.js",
+          "hash": "e6c6134ba6c0f26f",
+          "publicPath": "/p2p-passkeys/guide/assets/js/697.56769005.js"
+        }
+      ]
+    },
+    "859": {
+      "js": [
+        {
+          "file": "assets/js/859.2cde91db.js",
+          "hash": "63d90d6ffa82e79c",
+          "publicPath": "/p2p-passkeys/guide/assets/js/859.2cde91db.js"
+        }
+      ]
+    },
+    "878": {
+      "js": [
+        {
+          "file": "assets/js/878.6b53944e.js",
+          "hash": "9536a55592ae9918",
+          "publicPath": "/p2p-passkeys/guide/assets/js/878.6b53944e.js"
+        }
+      ]
+    },
+    "1031": {
+      "js": [
+        {
+          "file": "assets/js/1031.f626fcba.js",
+          "hash": "cee1fa38d3db2d49",
+          "publicPath": "/p2p-passkeys/guide/assets/js/1031.f626fcba.js"
+        }
+      ]
+    },
+    "1235": {
+      "js": [
+        {
+          "file": "assets/js/a7456010.ea47ac6c.js",
+          "hash": "e25f81b50f66c4b2",
+          "publicPath": "/p2p-passkeys/guide/assets/js/a7456010.ea47ac6c.js"
+        }
+      ]
+    },
+    "1679": {
+      "js": [
+        {
+          "file": "assets/js/1679.c0c9105e.js",
+          "hash": "3f34e8824718ecae",
+          "publicPath": "/p2p-passkeys/guide/assets/js/1679.c0c9105e.js"
+        }
+      ]
+    },
+    "1869": {
+      "css": [
+        {
+          "file": "assets/css/styles.f02ebe16.css",
+          "hash": "0b34752534352925",
+          "publicPath": "/p2p-passkeys/guide/assets/css/styles.f02ebe16.css"
+        }
+      ]
+    },
+    "2038": {
+      "js": [
+        {
+          "file": "assets/js/2038.e525fe6a.js",
+          "hash": "f3fc505b75e4d518",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2038.e525fe6a.js"
+        }
+      ]
+    },
+    "2076": {
+      "js": [
+        {
+          "file": "assets/js/common.5072dc64.js",
+          "hash": "2e8e0d574e54cf07",
+          "publicPath": "/p2p-passkeys/guide/assets/js/common.5072dc64.js"
+        }
+      ]
+    },
+    "2130": {
+      "js": [
+        {
+          "file": "assets/js/2130.47afd279.js",
+          "hash": "ef7e62729727bc5b",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2130.47afd279.js"
+        }
+      ]
+    },
+    "2237": {
+      "js": [
+        {
+          "file": "assets/js/2237.2dc13df4.js",
+          "hash": "77044f080528afa9",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2237.2dc13df4.js"
+        }
+      ]
+    },
+    "2279": {
+      "js": [
+        {
+          "file": "assets/js/2279.8f229af5.js",
+          "hash": "5330cd05d1d5edd9",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2279.8f229af5.js"
+        }
+      ]
+    },
+    "2334": {
+      "js": [
+        {
+          "file": "assets/js/2334.b65a0078.js",
+          "hash": "0898c76c5af7e5f6",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2334.b65a0078.js"
+        }
+      ]
+    },
+    "2442": {
+      "js": [
+        {
+          "file": "assets/js/e659d9ad.95908d1b.js",
+          "hash": "6f3343dd935b6954",
+          "publicPath": "/p2p-passkeys/guide/assets/js/e659d9ad.95908d1b.js"
+        }
+      ]
+    },
+    "2588": {
+      "js": [
+        {
+          "file": "assets/js/2588.67f8125c.js",
+          "hash": "1c9c920ab627ac80",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2588.67f8125c.js"
+        }
+      ]
+    },
+    "2850": {
+      "js": [
+        {
+          "file": "assets/js/2850.16d8dd29.js",
+          "hash": "331fe1672a8ade45",
+          "publicPath": "/p2p-passkeys/guide/assets/js/2850.16d8dd29.js"
+        }
+      ]
+    },
+    "3201": {
+      "js": [
+        {
+          "file": "assets/js/3201.12c15e78.js",
+          "hash": "6ece2cdb4ec9a669",
+          "publicPath": "/p2p-passkeys/guide/assets/js/3201.12c15e78.js"
+        }
+      ]
+    },
+    "3447": {
+      "js": [
+        {
+          "file": "assets/js/56612376.5f9b810d.js",
+          "hash": "f6763d926d606f24",
+          "publicPath": "/p2p-passkeys/guide/assets/js/56612376.5f9b810d.js"
+        }
+      ]
+    },
+    "3976": {
+      "js": [
+        {
+          "file": "assets/js/0e384e19.b81055a3.js",
+          "hash": "e1ece2c90601fbe1",
+          "publicPath": "/p2p-passkeys/guide/assets/js/0e384e19.b81055a3.js"
+        }
+      ]
+    },
+    "4070": {
+      "js": [
+        {
+          "file": "assets/js/4070.790a4339.js",
+          "hash": "82461aaa57ae8102",
+          "publicPath": "/p2p-passkeys/guide/assets/js/4070.790a4339.js"
+        }
+      ]
+    },
+    "4293": {
+      "js": [
+        {
+          "file": "assets/js/4293.43c45eaf.js",
+          "hash": "bad413a4958ae705",
+          "publicPath": "/p2p-passkeys/guide/assets/js/4293.43c45eaf.js"
+        }
+      ]
+    },
+    "4377": {
+      "js": [
+        {
+          "file": "assets/js/4377.188a57ce.js",
+          "hash": "0ff61c5593b3ec83",
+          "publicPath": "/p2p-passkeys/guide/assets/js/4377.188a57ce.js"
+        }
+      ]
+    },
+    "4583": {
+      "js": [
+        {
+          "file": "assets/js/1df93b7f.bd10bc8b.js",
+          "hash": "323fe96193eb1954",
+          "publicPath": "/p2p-passkeys/guide/assets/js/1df93b7f.bd10bc8b.js"
+        }
+      ]
+    },
+    "4736": {
+      "js": [
+        {
+          "file": "assets/js/4736.d752cbc4.js",
+          "hash": "2fd0962648d4e24d",
+          "publicPath": "/p2p-passkeys/guide/assets/js/4736.d752cbc4.js"
+        }
+      ]
+    },
+    "5187": {
+      "js": [
+        {
+          "file": "assets/js/5187.09aa8e5a.js",
+          "hash": "e9a2b06d38f29056",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5187.09aa8e5a.js"
+        }
+      ]
+    },
+    "5354": {
+      "js": [
+        {
+          "file": "assets/js/runtime~main.56e0fe50.js",
+          "hash": "44ee4f03b22d0321",
+          "publicPath": "/p2p-passkeys/guide/assets/js/runtime~main.56e0fe50.js"
+        }
+      ]
+    },
+    "5359": {
+      "js": [
+        {
+          "file": "assets/js/5359.1ca68a0d.js",
+          "hash": "824a58edbb6f7433",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5359.1ca68a0d.js"
+        }
+      ]
+    },
+    "5378": {
+      "js": [
+        {
+          "file": "assets/js/5378.1c3aae31.js",
+          "hash": "aea9ede06db63d6f",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5378.1c3aae31.js"
+        }
+      ]
+    },
+    "5447": {
+      "js": [
+        {
+          "file": "assets/js/5447.500ae93d.js",
+          "hash": "ecd5a9dd723f47a7",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5447.500ae93d.js"
+        }
+      ]
+    },
+    "5518": {
+      "js": [
+        {
+          "file": "assets/js/5518.6686cb4b.js",
+          "hash": "07f5496a9137c61e",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5518.6686cb4b.js"
+        }
+      ]
+    },
+    "5742": {
+      "js": [
+        {
+          "file": "assets/js/aba21aa0.486d3636.js",
+          "hash": "5ffb364b19759bf9",
+          "publicPath": "/p2p-passkeys/guide/assets/js/aba21aa0.486d3636.js"
+        }
+      ]
+    },
+    "5895": {
+      "js": [
+        {
+          "file": "assets/js/5895.e5ef2f02.js",
+          "hash": "504882a6110ed051",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5895.e5ef2f02.js"
+        }
+      ]
+    },
+    "5944": {
+      "js": [
+        {
+          "file": "assets/js/5944.ce959229.js",
+          "hash": "3f1b42f7782f42f3",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5944.ce959229.js"
+        }
+      ]
+    },
+    "5982": {
+      "js": [
+        {
+          "file": "assets/js/5982.5e79f770.js",
+          "hash": "c049062266545056",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5982.5e79f770.js"
+        }
+      ]
+    },
+    "6235": {
+      "js": [
+        {
+          "file": "assets/js/6235.9e04fe82.js",
+          "hash": "23bc1d74b1dedff7",
+          "publicPath": "/p2p-passkeys/guide/assets/js/6235.9e04fe82.js"
+        }
+      ]
+    },
+    "6418": {
+      "js": [
+        {
+          "file": "assets/js/130b57f5.8cc72a3e.js",
+          "hash": "3029fb470284a864",
+          "publicPath": "/p2p-passkeys/guide/assets/js/130b57f5.8cc72a3e.js"
+        }
+      ]
+    },
+    "6427": {
+      "js": [
+        {
+          "file": "assets/js/6427.17ca9686.js",
+          "hash": "249dbec8dc8ad808",
+          "publicPath": "/p2p-passkeys/guide/assets/js/6427.17ca9686.js"
+        }
+      ]
+    },
+    "6500": {
+      "js": [
+        {
+          "file": "assets/js/6500.632a7e2c.js",
+          "hash": "0ae7ba70ed05faa7",
+          "publicPath": "/p2p-passkeys/guide/assets/js/6500.632a7e2c.js"
+        }
+      ]
+    },
+    "6550": {
+      "js": [
+        {
+          "file": "assets/js/6550.8212fe78.js",
+          "hash": "0a8a53d564193450",
+          "publicPath": "/p2p-passkeys/guide/assets/js/6550.8212fe78.js"
+        }
+      ]
+    },
+    "7098": {
+      "js": [
+        {
+          "file": "assets/js/a7bd4aaa.ee3a8c6f.js",
+          "hash": "1775b438cca2eae8",
+          "publicPath": "/p2p-passkeys/guide/assets/js/a7bd4aaa.ee3a8c6f.js"
+        }
+      ]
+    },
+    "7333": {
+      "js": [
+        {
+          "file": "assets/js/7333.d32bc7a7.js",
+          "hash": "79984ea39236827c",
+          "publicPath": "/p2p-passkeys/guide/assets/js/7333.d32bc7a7.js"
+        }
+      ]
+    },
+    "7367": {
+      "js": [
+        {
+          "file": "assets/js/7367.78078c14.js",
+          "hash": "ec0ceed37052b953",
+          "publicPath": "/p2p-passkeys/guide/assets/js/7367.78078c14.js"
+        }
+      ]
+    },
+    "7443": {
+      "js": [
+        {
+          "file": "assets/js/964ae018.a3a54b09.js",
+          "hash": "912c1259f9a9bfc2",
+          "publicPath": "/p2p-passkeys/guide/assets/js/964ae018.a3a54b09.js"
+        }
+      ]
+    },
+    "7598": {
+      "js": [
+        {
+          "file": "assets/js/7598.d37b406d.js",
+          "hash": "addf8644e73d4ccc",
+          "publicPath": "/p2p-passkeys/guide/assets/js/7598.d37b406d.js"
+        }
+      ]
+    },
+    "7924": {
+      "js": [
+        {
+          "file": "assets/js/d589d3a7.ba8f7bf4.js",
+          "hash": "592734764b6ab642",
+          "publicPath": "/p2p-passkeys/guide/assets/js/d589d3a7.ba8f7bf4.js"
+        }
+      ]
+    },
+    "7928": {
+      "js": [
+        {
+          "file": "assets/js/7928.9bf0753c.js",
+          "hash": "238a0fa4285ba79f",
+          "publicPath": "/p2p-passkeys/guide/assets/js/7928.9bf0753c.js"
+        }
+      ]
+    },
+    "7999": {
+      "js": [
+        {
+          "file": "assets/js/7999.5b12e2ad.js",
+          "hash": "eb70356698240bf4",
+          "publicPath": "/p2p-passkeys/guide/assets/js/7999.5b12e2ad.js"
+        }
+      ]
+    },
+    "8021": {
+      "js": [
+        {
+          "file": "assets/js/8021.23c26867.js",
+          "hash": "f66f90c590792f38",
+          "publicPath": "/p2p-passkeys/guide/assets/js/8021.23c26867.js"
+        }
+      ]
+    },
+    "8335": {
+      "js": [
+        {
+          "file": "assets/js/8335.6a77faae.js",
+          "hash": "dcd4d2415363bf05",
+          "publicPath": "/p2p-passkeys/guide/assets/js/8335.6a77faae.js"
+        }
+      ]
+    },
+    "8401": {
+      "js": [
+        {
+          "file": "assets/js/17896441.9cb24251.js",
+          "hash": "414ecb8678120617",
+          "publicPath": "/p2p-passkeys/guide/assets/js/17896441.9cb24251.js"
+        }
+      ]
+    },
+    "8644": {
+      "js": [
+        {
+          "file": "assets/js/8644.2f7d7860.js",
+          "hash": "4b0e06df070cab39",
+          "publicPath": "/p2p-passkeys/guide/assets/js/8644.2f7d7860.js"
+        }
+      ]
+    },
+    "8659": {
+      "js": [
+        {
+          "file": "assets/js/8659.0df57d50.js",
+          "hash": "5503aa433304ba3d",
+          "publicPath": "/p2p-passkeys/guide/assets/js/8659.0df57d50.js"
+        }
+      ]
+    },
+    "8792": {
+      "js": [
+        {
+          "file": "assets/js/main.5d7737fb.js",
+          "hash": "1eed795697906188",
+          "publicPath": "/p2p-passkeys/guide/assets/js/main.5d7737fb.js"
+        }
+      ]
+    },
+    "8811": {
+      "js": [
+        {
+          "file": "assets/js/8811.bd0fb34b.js",
+          "hash": "5c322d3f85c71148",
+          "publicPath": "/p2p-passkeys/guide/assets/js/8811.bd0fb34b.js"
+        }
+      ]
+    },
+    "8894": {
+      "js": [
+        {
+          "file": "assets/js/8894.53edf49c.js",
+          "hash": "eeaf282d9ea7a990",
+          "publicPath": "/p2p-passkeys/guide/assets/js/8894.53edf49c.js"
+        }
+      ]
+    },
+    "9048": {
+      "js": [
+        {
+          "file": "assets/js/a94703ab.886025d4.js",
+          "hash": "7df59915ac4f9fe4",
+          "publicPath": "/p2p-passkeys/guide/assets/js/a94703ab.886025d4.js"
+        }
+      ]
+    },
+    "9169": {
+      "js": [
+        {
+          "file": "assets/js/9169.01439858.js",
+          "hash": "9da11c03c96f0349",
+          "publicPath": "/p2p-passkeys/guide/assets/js/9169.01439858.js"
+        }
+      ]
+    },
+    "9311": {
+      "js": [
+        {
+          "file": "assets/js/9311.db0696c1.js",
+          "hash": "1f5b1f5532929605",
+          "publicPath": "/p2p-passkeys/guide/assets/js/9311.db0696c1.js"
+        }
+      ]
+    },
+    "9589": {
+      "js": [
+        {
+          "file": "assets/js/408522b1.3f5467f9.js",
+          "hash": "f68fb1c9d36dcf92",
+          "publicPath": "/p2p-passkeys/guide/assets/js/408522b1.3f5467f9.js"
+        }
+      ]
+    },
+    "9647": {
+      "js": [
+        {
+          "file": "assets/js/5e95c892.5cf8ec59.js",
+          "hash": "8ee9893c64dc8734",
+          "publicPath": "/p2p-passkeys/guide/assets/js/5e95c892.5cf8ec59.js"
+        }
+      ]
+    },
+    "9945": {
+      "js": [
+        {
+          "file": "assets/js/6de1eb58.7efe11ef.js",
+          "hash": "907623210936ef48",
+          "publicPath": "/p2p-passkeys/guide/assets/js/6de1eb58.7efe11ef.js"
+        }
+      ]
+    }
+  }
+}

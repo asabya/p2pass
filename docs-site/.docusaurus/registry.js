@@ -1,0 +1,18 @@
+export default {
+  "0e384e19": [() => import(/* webpackChunkName: "0e384e19" */ "@site/docs/intro.md"), "@site/docs/intro.md", require.resolveWeak("@site/docs/intro.md")],
+  "130b57f5": [() => import(/* webpackChunkName: "130b57f5" */ "@generated/docusaurus-plugin-content-docs/default/p/p-2-p-passkeys-guide-docs-418.json"), "@generated/docusaurus-plugin-content-docs/default/p/p-2-p-passkeys-guide-docs-418.json", require.resolveWeak("@generated/docusaurus-plugin-content-docs/default/p/p-2-p-passkeys-guide-docs-418.json")],
+  "17896441": [() => import(/* webpackChunkName: "17896441" */ "@theme/DocItem"), "@theme/DocItem", require.resolveWeak("@theme/DocItem")],
+  "1df93b7f": [() => import(/* webpackChunkName: "1df93b7f" */ "@site/src/pages/index.tsx"), "@site/src/pages/index.tsx", require.resolveWeak("@site/src/pages/index.tsx")],
+  "408522b1": [() => import(/* webpackChunkName: "408522b1" */ "@site/docs/architecture/storacha-backup.md"), "@site/docs/architecture/storacha-backup.md", require.resolveWeak("@site/docs/architecture/storacha-backup.md")],
+  "56612376": [() => import(/* webpackChunkName: "56612376" */ "@site/docs/architecture/p2p-stack.md"), "@site/docs/architecture/p2p-stack.md", require.resolveWeak("@site/docs/architecture/p2p-stack.md")],
+  "5e95c892": [() => import(/* webpackChunkName: "5e95c892" */ "@theme/DocsRoot"), "@theme/DocsRoot", require.resolveWeak("@theme/DocsRoot")],
+  "5e9f5e1a": [() => import(/* webpackChunkName: "5e9f5e1a" */ "@generated/docusaurus.config"), "@generated/docusaurus.config", require.resolveWeak("@generated/docusaurus.config")],
+  "6de1eb58": [() => import(/* webpackChunkName: "6de1eb58" */ "@site/docs/architecture/identity.md"), "@site/docs/architecture/identity.md", require.resolveWeak("@site/docs/architecture/identity.md")],
+  "829b9793": [() => import(/* webpackChunkName: "829b9793" */ "@site/docs/guides/react-wrapper.md"), "@site/docs/guides/react-wrapper.md", require.resolveWeak("@site/docs/guides/react-wrapper.md")],
+  "964ae018": [() => import(/* webpackChunkName: "964ae018" */ "@site/docs/api-reference.md"), "@site/docs/api-reference.md", require.resolveWeak("@site/docs/api-reference.md")],
+  "a7456010": [() => import(/* webpackChunkName: "a7456010" */ "@generated/docusaurus-plugin-content-pages/default/__plugin.json"), "@generated/docusaurus-plugin-content-pages/default/__plugin.json", require.resolveWeak("@generated/docusaurus-plugin-content-pages/default/__plugin.json")],
+  "a7bd4aaa": [() => import(/* webpackChunkName: "a7bd4aaa" */ "@theme/DocVersionRoot"), "@theme/DocVersionRoot", require.resolveWeak("@theme/DocVersionRoot")],
+  "a94703ab": [() => import(/* webpackChunkName: "a94703ab" */ "@theme/DocRoot"), "@theme/DocRoot", require.resolveWeak("@theme/DocRoot")],
+  "aba21aa0": [() => import(/* webpackChunkName: "aba21aa0" */ "@generated/docusaurus-plugin-content-docs/default/__plugin.json"), "@generated/docusaurus-plugin-content-docs/default/__plugin.json", require.resolveWeak("@generated/docusaurus-plugin-content-docs/default/__plugin.json")],
+  "d589d3a7": [() => import(/* webpackChunkName: "d589d3a7" */ "@site/docs/getting-started.md"), "@site/docs/getting-started.md", require.resolveWeak("@site/docs/getting-started.md")],
+  "e659d9ad": [() => import(/* webpackChunkName: "e659d9ad" */ "@site/docs/guides/device-linking.md"), "@site/docs/guides/device-linking.md", require.resolveWeak("@site/docs/guides/device-linking.md")],};

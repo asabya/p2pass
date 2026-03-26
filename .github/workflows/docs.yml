@@ -1,0 +1,63 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'docs-site/**'
+      - 'docs/index.html'
+      - 'src/lib/**'
+      - 'examples/svelte/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # Install root dependencies (for building library + demo)
+      - name: Install root dependencies
+        run: npm ci
+
+      # Build the library (needed by demo)
+      - name: Build library
+        run: npm run package
+
+      # Build Docusaurus docs
+      - name: Install docs dependencies
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Build docs
+        working-directory: docs-site
+        run: npm run build
+
+      - name: Copy docs build to docs/guide
+        run: |
+          rm -rf docs/guide
+          cp -r docs-site/build docs/guide
+
+      # Build Svelte demo
+      - name: Build demo
+        run: BASE_URL=/p2p-passkeys/demo/ npx vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir
+
+      # Deploy everything under docs/
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs
+          keep_files: false
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com

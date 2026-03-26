@@ -1,0 +1,54 @@
+{
+  "/p2p-passkeys/guide/docs-8f3": {
+    "__comp": "5e95c892",
+    "__context": {
+      "plugin": "aba21aa0"
+    }
+  },
+  "/p2p-passkeys/guide/docs-243": {
+    "__comp": "a7bd4aaa",
+    "__props": "130b57f5"
+  },
+  "/p2p-passkeys/guide/docs-4e2": {
+    "__comp": "a94703ab"
+  },
+  "/p2p-passkeys/guide/docs/api-reference-3a7": {
+    "__comp": "17896441",
+    "content": "964ae018"
+  },
+  "/p2p-passkeys/guide/docs/architecture/identity-db2": {
+    "__comp": "17896441",
+    "content": "6de1eb58"
+  },
+  "/p2p-passkeys/guide/docs/architecture/p2p-stack-318": {
+    "__comp": "17896441",
+    "content": "56612376"
+  },
+  "/p2p-passkeys/guide/docs/architecture/storacha-backup-92b": {
+    "__comp": "17896441",
+    "content": "408522b1"
+  },
+  "/p2p-passkeys/guide/docs/getting-started-fbd": {
+    "__comp": "17896441",
+    "content": "d589d3a7"
+  },
+  "/p2p-passkeys/guide/docs/guides/device-linking-6ca": {
+    "__comp": "17896441",
+    "content": "e659d9ad"
+  },
+  "/p2p-passkeys/guide/docs/guides/react-wrapper-e80": {
+    "__comp": "17896441",
+    "content": "829b9793"
+  },
+  "/p2p-passkeys/guide/docs/intro-d8d": {
+    "__comp": "17896441",
+    "content": "0e384e19"
+  },
+  "/p2p-passkeys/guide/-e22": {
+    "__comp": "1df93b7f",
+    "__context": {
+      "plugin": "a7456010"
+    },
+    "config": "5e9f5e1a"
+  }
+}
