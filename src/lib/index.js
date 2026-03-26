@@ -5,6 +5,9 @@ export const VERSION = '0.1.0';
 export { default as StorachaIntegration } from './ui/StorachaIntegration.svelte';
 export { default as StorachaFab } from './ui/StorachaFab.svelte';
 
+// React wrappers
+export { StorachaFab as StorachaFabReact, StorachaIntegration as StorachaIntegrationReact } from './react/index.js';
+
 // Identity
 export { IdentityService } from './identity/identity-service.js';
 export { detectSigningMode, getStoredSigningMode } from './identity/mode-detector.js';

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+	base: process.env.BASE_URL || '/',
 	root: __dirname,
 	plugins: [
 		tailwindcss(),
@@ -18,7 +19,7 @@ export default defineConfig({
 	],
 	resolve: {
 		alias: {
-			'p2p-passkeys': path.resolve(__dirname, '../dist')
+			'p2p-passkeys': path.resolve(__dirname, '../../dist')
 		}
 	},
 	optimizeDeps: {
