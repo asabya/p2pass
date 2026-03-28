@@ -24,12 +24,7 @@ npm install p2p-passkeys
   import { StorachaFab } from 'p2p-passkeys';
 </script>
 
-<StorachaFab
-  {orbitdb}
-  {libp2p}
-  onAuthenticate={handleAuthenticate}
-  preferWorkerMode={true}
-/>
+<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
 ```
 
 The component handles everything internally:
@@ -125,10 +120,12 @@ User clicks "Recover Identity"
 ### Key Insight
 
 The WebAuthn credential never signs anything — it's only used for:
+
 1. **User verification** (biometric gate)
 2. **PRF seed extraction** (deterministic secret derived from biometric + salt)
 
 The PRF seed is the root of all derived keys:
+
 - **Ed25519 DID keypair** — encrypted with PRF-derived AES key
 - **IPNS recovery key** — deterministically derived from PRF seed
 - **Keystore encryption** — PRF seed used as AES-GCM key
@@ -137,11 +134,11 @@ This means the same passkey on any device (via passkey sync) produces the same P
 
 ### Signing Modes
 
-| Mode | Security | Key Storage | Biometric |
-|------|----------|-------------|-----------|
-| Hardware Ed25519 | Highest | TPM/Secure Enclave | Per signature |
-| Hardware P-256 | High | TPM/Secure Enclave | Per signature |
-| Worker Ed25519 | Medium | Web worker + encrypted localStorage | On init only |
+| Mode             | Security | Key Storage                         | Biometric     |
+| ---------------- | -------- | ----------------------------------- | ------------- |
+| Hardware Ed25519 | Highest  | TPM/Secure Enclave                  | Per signature |
+| Hardware P-256   | High     | TPM/Secure Enclave                  | Per signature |
+| Worker Ed25519   | Medium   | Web worker + encrypted localStorage | On init only  |
 
 Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-device). The component auto-detects the best available mode when `preferWorkerMode` is not set.
 
@@ -149,33 +146,39 @@ Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-devic
 
 When using `StorachaFab` or `StorachaIntegration` directly:
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `orbitdb` | object | `null` | OrbitDB instance (for backup/restore) |
-| `database` | object | `null` | Database instance to backup |
-| `isInitialized` | boolean | `false` | Whether OrbitDB is ready |
-| `entryCount` | number | `0` | Database entry count |
-| `databaseName` | string | `'restored-db'` | Name for restored database |
-| `onRestore` | function | `() => {}` | Called when restore completes |
-| `onBackup` | function | `() => {}` | Called when backup completes |
-| `onAuthenticate` | function | `() => {}` | Called after passkey auth (receives signingMode) |
-| `libp2p` | object | `null` | libp2p instance for P2P connectivity |
-| `preferWorkerMode` | boolean | `false` | Skip hardware mode, use worker Ed25519 |
+| Prop               | Type     | Default         | Description                                      |
+| ------------------ | -------- | --------------- | ------------------------------------------------ |
+| `orbitdb`          | object   | `null`          | OrbitDB instance (for backup/restore)            |
+| `database`         | object   | `null`          | Database instance to backup                      |
+| `isInitialized`    | boolean  | `false`         | Whether OrbitDB is ready                         |
+| `entryCount`       | number   | `0`             | Database entry count                             |
+| `databaseName`     | string   | `'restored-db'` | Name for restored database                       |
+| `onRestore`        | function | `() => {}`      | Called when restore completes                    |
+| `onBackup`         | function | `() => {}`      | Called when backup completes                     |
+| `onAuthenticate`   | function | `() => {}`      | Called after passkey auth (receives signingMode) |
+| `libp2p`           | object   | `null`          | libp2p instance for P2P connectivity             |
+| `preferWorkerMode` | boolean  | `false`         | Skip hardware mode, use worker Ed25519           |
 
 ## Components
 
 ### `StorachaFab`
+
 Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required.
 
 ### `StorachaIntegration`
+
 The panel component itself. Can be embedded inline instead of as a floating panel.
 
 ## Programmatic API
 
 ```js
 import {
-  IdentityService, createStorachaClient, parseDelegation,
-  setupP2PStack, createLibp2pInstance, cleanupP2PStack
+  IdentityService,
+  createStorachaClient,
+  parseDelegation,
+  setupP2PStack,
+  createLibp2pInstance,
+  cleanupP2PStack,
 } from 'p2p-passkeys';
 
 // Create identity (worker mode for P2P)

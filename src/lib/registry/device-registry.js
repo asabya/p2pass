@@ -98,7 +98,12 @@ export async function registerDevice(db, entry) {
 export async function listDevices(db) {
   const all = await db.all();
   return all
-    .filter((e) => !e.key?.startsWith?.('delegation:') && !e.key?.startsWith?.('archive:') && !e.key?.startsWith?.('keypair:'))
+    .filter(
+      (e) =>
+        !e.key?.startsWith?.('delegation:') &&
+        !e.key?.startsWith?.('archive:') &&
+        !e.key?.startsWith?.('keypair:')
+    )
     .map((e) => e.value);
 }
 
@@ -177,9 +182,7 @@ export async function storeDelegationEntry(db, delegationBase64, spaceDid, label
  */
 export async function listDelegations(db) {
   const all = await db.all();
-  return all
-    .filter((e) => e.key?.startsWith?.('delegation:'))
-    .map((e) => e.value);
+  return all.filter((e) => e.key?.startsWith?.('delegation:')).map((e) => e.value);
 }
 
 /**
@@ -268,7 +271,5 @@ export async function getKeypairEntry(db, did) {
  */
 export async function listKeypairs(db) {
   const all = await db.all();
-  return all
-    .filter((e) => e.key?.startsWith?.('keypair:'))
-    .map((e) => e.value);
+  return all.filter((e) => e.key?.startsWith?.('keypair:')).map((e) => e.value);
 }

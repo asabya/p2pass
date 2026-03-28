@@ -4,11 +4,11 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [
-		tailwindcss(),
-		nodePolyfills({
-			include: ['buffer', 'process', 'stream', 'util', 'events', 'path']
-		}),
-		sveltekit()
-	]
+  plugins: [
+    tailwindcss(),
+    nodePolyfills({
+      include: ['buffer', 'process', 'stream', 'util', 'events', 'path'],
+    }),
+    sveltekit(),
+  ],
 });

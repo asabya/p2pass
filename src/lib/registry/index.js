@@ -38,6 +38,8 @@ export {
   detectDeviceLabel,
   sortPairingMultiaddrs,
   filterPairingDialMultiaddrs,
+  pairingFlow,
+  PAIRING_HINT_ADDR_CAP,
 } from './pairing-protocol.js';
 
 // Manager

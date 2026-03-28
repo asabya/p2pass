@@ -47,13 +47,7 @@ export async function computeDeterministicPrfSalt() {
  */
 export async function deriveIPNSKeyPair(prfSeed) {
   // Import the PRF seed as HKDF base key material
-  const baseKey = await crypto.subtle.importKey(
-    'raw',
-    prfSeed,
-    'HKDF',
-    false,
-    ['deriveBits']
-  );
+  const baseKey = await crypto.subtle.importKey('raw', prfSeed, 'HKDF', false, ['deriveBits']);
 
   // Derive a salt from the seed itself: SHA-256(prfSeed) truncated to 16 bytes
   const seedHash = await crypto.subtle.digest('SHA-256', prfSeed);
@@ -108,9 +102,9 @@ export async function recoverPrfSeed() {
       rpId: hostname,
       userVerification: 'required',
       extensions: {
-        prf: { eval: { first: deterministicSalt } }
-      }
-    }
+        prf: { eval: { first: deterministicSalt } },
+      },
+    },
   });
 
   const rawCredentialId = new Uint8Array(assertion.rawId);

@@ -9,9 +9,9 @@
 import * as Client from '@storacha/client';
 import { StoreMemory } from '@storacha/client/stores/memory';
 import {
-	storeDelegationEntry,
-	listDelegations,
-	removeDelegation as removeRegistryDelegation
+  storeDelegationEntry,
+  listDelegations,
+  removeDelegation as removeRegistryDelegation,
 } from '../registry/device-registry.js';
 
 const STORAGE_KEY_DELEGATION = 'storacha_ucan_delegation';
@@ -24,17 +24,17 @@ const STORAGE_KEY_DELEGATION = 'storacha_ucan_delegation';
  * @returns {Promise<any>} Storacha Client instance with space set
  */
 export async function createStorachaClient(principal, delegation) {
-	console.log('[storacha] Creating client with UCAN principal...');
+  console.log('[storacha] Creating client with UCAN principal...');
 
-	const store = new StoreMemory();
-	const client = await Client.create({ principal, store });
+  const store = new StoreMemory();
+  const client = await Client.create({ principal, store });
 
-	// Add space from delegation
-	const space = await client.addSpace(delegation);
-	await client.setCurrentSpace(space.did());
+  // Add space from delegation
+  const space = await client.addSpace(delegation);
+  await client.setCurrentSpace(space.did());
 
-	console.log(`[storacha] Client ready. Space: ${space.did()}`);
-	return client;
+  console.log(`[storacha] Client ready. Space: ${space.did()}`);
+  return client;
 }
 
 /**
@@ -48,47 +48,47 @@ export async function createStorachaClient(principal, delegation) {
  * @returns {Promise<any>} Parsed delegation object
  */
 export async function parseDelegation(proofString) {
-	const trimmed = proofString.trim();
+  const trimmed = proofString.trim();
 
-	// Try @storacha/client/proof.parse() first (handles most formats)
-	try {
-		const Proof = await import('@storacha/client/proof');
-		const delegation = await Proof.parse(trimmed);
-		console.log('[storacha] Delegation parsed via @storacha/client/proof');
-		return delegation;
-	} catch (err) {
-		console.warn('[storacha] Proof.parse() failed, trying ucanto extraction...', err.message);
-	}
+  // Try @storacha/client/proof.parse() first (handles most formats)
+  try {
+    const Proof = await import('@storacha/client/proof');
+    const delegation = await Proof.parse(trimmed);
+    console.log('[storacha] Delegation parsed via @storacha/client/proof');
+    return delegation;
+  } catch (err) {
+    console.warn('[storacha] Proof.parse() failed, trying ucanto extraction...', err.message);
+  }
 
-	// Try @ucanto/core/delegation.extract() with base64 decoding
-	try {
-		const Delegation = await import('@ucanto/core/delegation');
+  // Try @ucanto/core/delegation.extract() with base64 decoding
+  try {
+    const Delegation = await import('@ucanto/core/delegation');
 
-		// Handle multibase prefixes
-		let base64Data = trimmed;
-		if (base64Data.startsWith('u')) {
-			base64Data = base64Data.slice(1).replace(/-/g, '+').replace(/_/g, '/');
-		} else if (base64Data.startsWith('m')) {
-			base64Data = base64Data.slice(1);
-		}
+    // Handle multibase prefixes
+    let base64Data = trimmed;
+    if (base64Data.startsWith('u')) {
+      base64Data = base64Data.slice(1).replace(/-/g, '+').replace(/_/g, '/');
+    } else if (base64Data.startsWith('m')) {
+      base64Data = base64Data.slice(1);
+    }
 
-		// Pad if needed
-		while (base64Data.length % 4 !== 0) {
-			base64Data += '=';
-		}
+    // Pad if needed
+    while (base64Data.length % 4 !== 0) {
+      base64Data += '=';
+    }
 
-		const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-		const result = await Delegation.extract(bytes);
+    const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const result = await Delegation.extract(bytes);
 
-		if (result.ok) {
-			console.log('[storacha] Delegation parsed via @ucanto/core/delegation.extract()');
-			return result.ok;
-		}
+    if (result.ok) {
+      console.log('[storacha] Delegation parsed via @ucanto/core/delegation.extract()');
+      return result.ok;
+    }
 
-		throw new Error(result.error?.message || 'Delegation extraction failed');
-	} catch (err) {
-		throw new Error(`Failed to parse delegation: ${err.message}`);
-	}
+    throw new Error(result.error?.message || 'Delegation extraction failed');
+  } catch (err) {
+    throw new Error(`Failed to parse delegation: ${err.message}`);
+  }
 }
 
 /**
@@ -100,17 +100,17 @@ export async function parseDelegation(proofString) {
  * @param {string} [spaceDid] - Storacha space DID (for registry metadata)
  */
 export async function storeDelegation(delegationBase64, registryDb, spaceDid) {
-	if (registryDb) {
-		try {
-			await storeDelegationEntry(registryDb, delegationBase64, spaceDid);
-			console.log('[storacha] Delegation stored in registry DB');
-			return;
-		} catch (err) {
-			console.warn('[storacha] Registry write failed, falling back to localStorage:', err.message);
-		}
-	}
-	localStorage.setItem(STORAGE_KEY_DELEGATION, delegationBase64);
-	console.log('[storacha] Delegation stored in localStorage');
+  if (registryDb) {
+    try {
+      await storeDelegationEntry(registryDb, delegationBase64, spaceDid);
+      console.log('[storacha] Delegation stored in registry DB');
+      return;
+    } catch (err) {
+      console.warn('[storacha] Registry write failed, falling back to localStorage:', err.message);
+    }
+  }
+  localStorage.setItem(STORAGE_KEY_DELEGATION, delegationBase64);
+  console.log('[storacha] Delegation stored in localStorage');
 }
 
 /**
@@ -121,19 +121,19 @@ export async function storeDelegation(delegationBase64, registryDb, spaceDid) {
  * @returns {Promise<string|null>}
  */
 export async function loadStoredDelegation(registryDb) {
-	if (registryDb) {
-		const delegations = await listDelegations(registryDb);
-		if (delegations.length > 0) {
-			const sorted = delegations.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-			console.log('[storacha] Loaded delegation from registry DB');
-			return sorted[0].delegation;
-		}
-		// Registry exists but has no delegations — fall through to localStorage
-	}
+  if (registryDb) {
+    const delegations = await listDelegations(registryDb);
+    if (delegations.length > 0) {
+      const sorted = delegations.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      console.log('[storacha] Loaded delegation from registry DB');
+      return sorted[0].delegation;
+    }
+    // Registry exists but has no delegations — fall through to localStorage
+  }
 
-	const local = localStorage.getItem(STORAGE_KEY_DELEGATION);
-	if (local) console.log('[storacha] Loaded delegation from localStorage');
-	return local;
+  const local = localStorage.getItem(STORAGE_KEY_DELEGATION);
+  if (local) console.log('[storacha] Loaded delegation from localStorage');
+  return local;
 }
 
 /**
@@ -145,20 +145,20 @@ export async function loadStoredDelegation(registryDb) {
  * @param {string} [delegationBase64] - specific delegation to remove (if omitted, removes all)
  */
 export async function clearStoredDelegation(registryDb, delegationBase64) {
-	if (registryDb) {
-		if (delegationBase64) {
-			await removeRegistryDelegation(registryDb, delegationBase64);
-		} else {
-			// Remove all delegations from registry
-			const all = await listDelegations(registryDb);
-			for (const entry of all) {
-				if (entry.delegation) {
-					await removeRegistryDelegation(registryDb, entry.delegation);
-				}
-			}
-		}
-		console.log('[storacha] Delegation(s) removed from registry DB');
-	} else {
-		localStorage.removeItem(STORAGE_KEY_DELEGATION);
-	}
+  if (registryDb) {
+    if (delegationBase64) {
+      await removeRegistryDelegation(registryDb, delegationBase64);
+    } else {
+      // Remove all delegations from registry
+      const all = await listDelegations(registryDb);
+      for (const entry of all) {
+        if (entry.delegation) {
+          await removeRegistryDelegation(registryDb, entry.delegation);
+        }
+      }
+    }
+    console.log('[storacha] Delegation(s) removed from registry DB');
+  } else {
+    localStorage.removeItem(STORAGE_KEY_DELEGATION);
+  }
 }

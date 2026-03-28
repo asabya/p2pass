@@ -21,15 +21,20 @@ import { dcutr } from '@libp2p/dcutr';
 import { ping } from '@libp2p/ping';
 import { LevelBlockstore } from 'blockstore-level';
 import { LevelDatastore } from 'datastore-level';
-import {
-  OrbitDBWebAuthnIdentityProviderFunction,
-} from '@le-space/orbitdb-identity-provider-webauthn-did';
+import { OrbitDBWebAuthnIdentityProviderFunction } from '@le-space/orbitdb-identity-provider-webauthn-did';
 
 const parseAddrList = (value) =>
-  (value || '').split(',').map((s) => s.trim()).filter(Boolean);
+  (value || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 function getEnv(key) {
-  try { return import.meta.env?.[key] || ''; } catch { return ''; }
+  try {
+    return import.meta.env?.[key] || '';
+  } catch {
+    return '';
+  }
 }
 
 function getDefaultBootstrapList() {
@@ -44,7 +49,7 @@ const PUBSUB_PEER_DISCOVERY_TOPIC =
   'p2p-passkeys._peer-discovery._p2p._pubsub';
 
 const STUN_SERVERS = [
-  { urls: ['stun:stun.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] }
+  { urls: ['stun:stun.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
 ];
 
 /** Last `/p2p/<peerId>` segment from each multiaddr — bootstrap list is usually the relay. */
@@ -83,11 +88,14 @@ function attachRelayConnectionLogging(libp2p, bootstrapMultiaddrs) {
 const rtcConfig = { iceServers: STUN_SERVERS };
 
 /**
- * Dial peers discovered via pubsub (and other discovery), so browsers do not stay
- * stuck on relay-only when a direct path is available (same idea as simple-todo p2p.js).
+ * Dial peers discovered via pubsub (and other discovery). One `dial(peerId)` per event — libp2p’s
+ * connection manager + peer store pick addresses; looping every multiaddr is redundant and can
+ * amplify failures (e.g. repeated protocol negotiation on bad paths).
  */
 function attachPeerDiscoveryAutoDial(libp2p, { enablePeerConnections = true } = {}) {
   if (!enablePeerConnections) return;
+
+  const DIAL_MS = 30_000;
 
   libp2p.addEventListener('peer:discovery', (event) => {
     const { id: remotePeerId, multiaddrs } = event.detail || {};
@@ -96,20 +104,9 @@ function attachPeerDiscoveryAutoDial(libp2p, { enablePeerConnections = true } = 
     const self = libp2p.peerId;
     if (remotePeerId.equals?.(self) || remotePeerId.toString() === self.toString()) return;
 
-    const addrList = Array.isArray(multiaddrs) ? multiaddrs : [];
-    if (addrList.length > 0) {
-      const dialable = addrList.filter((addr) => {
-        const s = addr.toString();
-        return (
-          s.includes('/webrtc') ||
-          s.includes('/webtransport') ||
-          s.includes('/ws') ||
-          s.includes('/p2p-circuit')
-        );
-      });
-      if (dialable.length > 0) {
-        console.log('[p2p] peer:discovery (dialable addrs):', remotePeerId.toString());
-      }
+    const n = Array.isArray(multiaddrs) ? multiaddrs.length : 0;
+    if (n > 0) {
+      console.log('[p2p] peer:discovery:', remotePeerId.toString(), `(event addrs: ${n})`);
     }
 
     const existing = libp2p.getConnections(remotePeerId);
@@ -119,9 +116,17 @@ function attachPeerDiscoveryAutoDial(libp2p, { enablePeerConnections = true } = 
     });
     if (hasDirect) return;
 
-    libp2p.dial(remotePeerId).catch((err) => {
-      console.warn('[p2p] peer:discovery dial failed:', remotePeerId.toString(), err?.message || err);
-    });
+    (async () => {
+      try {
+        const signal =
+          typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+            ? AbortSignal.timeout(DIAL_MS)
+            : undefined;
+        await libp2p.dial(remotePeerId, signal ? { signal } : {});
+      } catch (err) {
+        console.warn('[p2p] peer:discovery dial failed:', remotePeerId.toString(), err?.message || err);
+      }
+    })();
   });
 }
 
@@ -135,9 +140,8 @@ function attachPeerDiscoveryAutoDial(libp2p, { enablePeerConnections = true } = 
  */
 export async function createLibp2pInstance(options = {}) {
   const { bootstrapList, enablePeerConnections = true } = options;
-  const peers = bootstrapList && bootstrapList.length > 0
-    ? bootstrapList
-    : getDefaultBootstrapList();
+  const peers =
+    bootstrapList && bootstrapList.length > 0 ? bootstrapList : getDefaultBootstrapList();
 
   const peerDiscovery = [
     pubsubPeerDiscovery({
@@ -168,6 +172,8 @@ export async function createLibp2pInstance(options = {}) {
       denyDialMultiaddr: async () => false,
     },
     connectionManager: {
+      /** Default 25 can throw `Peer had more than maxPeerAddrsToDial` when the peer store lists many paths (relay + LAN + IPv6). */
+      maxPeerAddrsToDial: 128,
       inboundStreamProtocolNegotiationTimeout: 10_000,
       inboundUpgradeTimeout: 10_000,
       outboundStreamProtocolNegotiationTimeout: 10_000,
@@ -224,7 +230,7 @@ export async function createHeliaInstance(libp2p, dbPath = './p2p-passkeys') {
  * @returns {Promise<{ orbitdb: Object, ipfs: Object, libp2p: Object, identity: Object }>}
  */
 export async function setupP2PStack(credential, options = {}) {
-  const libp2pNode = options.libp2p || await createLibp2pInstance(options);
+  const libp2pNode = options.libp2p || (await createLibp2pInstance(options));
   const ipfs = await createHeliaInstance(libp2pNode, options.dbPath);
 
   let identity;

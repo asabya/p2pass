@@ -86,17 +86,20 @@
 /* Storacha Brand CSS Variables */
 :root {
   /* Storacha Brand Colors */
-  --storacha-red-1: #E91315;      /* Primary Red - Logo, buttons */
-  --storacha-blue-1: #0176CE;     /* Primary Blue - Links, accents */
-  --storacha-yellow-1: #FFC83F;   /* Primary Yellow - Highlights */
-  --storacha-red-2: #EFE3F3;      /* Light Red - Backgrounds */
-  --storacha-blue-2: #BDE0FF;     /* Light Blue - Backgrounds */
-  --storacha-yellow-2: #FFE4AE;   /* Light Yellow - Backgrounds */
-  
+  --storacha-red-1: #e91315; /* Primary Red - Logo, buttons */
+  --storacha-blue-1: #0176ce; /* Primary Blue - Links, accents */
+  --storacha-yellow-1: #ffc83f; /* Primary Yellow - Highlights */
+  --storacha-red-2: #efe3f3; /* Light Red - Backgrounds */
+  --storacha-blue-2: #bde0ff; /* Light Blue - Backgrounds */
+  --storacha-yellow-2: #ffe4ae; /* Light Yellow - Backgrounds */
+
   /* Storacha Typography */
-  --storacha-font-heading: 'Epilogue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --storacha-font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --storacha-font-mono: 'DM Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', 'Consolas', 'Courier New', monospace;
+  --storacha-font-heading:
+    'Epilogue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --storacha-font-body:
+    'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --storacha-font-mono:
+    'DM Mono', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', 'Consolas', 'Courier New', monospace;
 }
 
 /* Utility classes for Storacha branding */

@@ -22,9 +22,30 @@ import {
   registerLinkDeviceHandler,
   LINK_DEVICE_PROTOCOL,
   sortPairingMultiaddrs,
+  pairingFlow,
+  PAIRING_HINT_ADDR_CAP,
 } from './pairing-protocol.js';
 
 export class MultiDeviceManager {
+  /**
+   * @param {string|{ peerId: string, multiaddrs?: string[] }} payload
+   * @returns {{ peerId: string, multiaddrs: string[] }}
+   */
+  static _normalizeLinkPayload(payload) {
+    if (typeof payload === 'string') {
+      const peerId = payload.trim();
+      if (!peerId) throw new Error('peerId is empty');
+      return { peerId, multiaddrs: [] };
+    }
+    if (payload && typeof payload === 'object' && typeof payload.peerId === 'string') {
+      return {
+        peerId: payload.peerId.trim(),
+        multiaddrs: Array.isArray(payload.multiaddrs) ? payload.multiaddrs : [],
+      };
+    }
+    throw new Error('linkToDevice: expected a peer id string or { peerId, multiaddrs? }');
+  }
+
   constructor() {
     this._credential = null;
     this._orbitdb = null;
@@ -79,10 +100,20 @@ export class MultiDeviceManager {
     await this._setupSyncListeners();
     if (this._onPairingRequest) {
       // Unregister existing handler before re-registering (e.g. after DB reopen)
-      try { await this._libp2p.unhandle(LINK_DEVICE_PROTOCOL); } catch { /* not registered */ }
-      console.log('[manager] Registering link device handler for peer:', this._libp2p?.peerId?.toString());
+      try {
+        await this._libp2p.unhandle(LINK_DEVICE_PROTOCOL);
+      } catch {
+        /* not registered */
+      }
+      console.log(
+        '[manager] Registering link device handler for peer:',
+        this._libp2p?.peerId?.toString()
+      );
       await registerLinkDeviceHandler(
-        this._libp2p, this._devicesDb, this._onPairingRequest, this._onDeviceLinked
+        this._libp2p,
+        this._devicesDb,
+        this._onPairingRequest,
+        this._onDeviceLinked
       );
       console.log('[manager] Link device handler registered');
     }
@@ -90,14 +121,20 @@ export class MultiDeviceManager {
 
   async createNew() {
     if (!this._orbitdb) {
-      throw new Error('orbitdb not provided. Pass orbitdb, ipfs, libp2p, identity in config, or use createFromExisting().');
+      throw new Error(
+        'orbitdb not provided. Pass orbitdb, ipfs, libp2p, identity in config, or use createFromExisting().'
+      );
     }
 
     this._devicesDb = await openDeviceRegistry(this._orbitdb, this._identity.id);
     this._dbAddress = this._devicesDb.address;
 
     await registerDevice(this._devicesDb, {
-      credential_id: this._credential?.credentialId || this._credential?.id || this._libp2p?.peerId?.toString() || 'unknown',
+      credential_id:
+        this._credential?.credentialId ||
+        this._credential?.id ||
+        this._libp2p?.peerId?.toString() ||
+        'unknown',
       public_key: this._getPublicKey(),
       device_label: detectDeviceLabel(),
       created_at: Date.now(),
@@ -143,7 +180,13 @@ export class MultiDeviceManager {
         const devices = await listDevices(this._devicesDb);
         console.log('[manager] UPDATE: Devices found:', devices.length);
         for (const device of devices) {
-          console.log('[manager] UPDATE: Triggering callback for device:', device.device_label, device.ed25519_did, 'status:', device.status);
+          console.log(
+            '[manager] UPDATE: Triggering callback for device:',
+            device.device_label,
+            device.ed25519_did,
+            'status:',
+            device.status
+          );
           this._onDeviceLinked(device);
         }
       }
@@ -156,10 +199,16 @@ export class MultiDeviceManager {
     while (Date.now() - start < timeoutMs) {
       const entries = await listDevices(this._devicesDb);
       if (entries.length > 0) {
-        console.log('[manager] _waitForEntries: found', entries.length, 'entries after', Date.now() - start, 'ms');
+        console.log(
+          '[manager] _waitForEntries: found',
+          entries.length,
+          'entries after',
+          Date.now() - start,
+          'ms'
+        );
         return;
       }
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
     console.warn('[manager] _waitForEntries: timed out after', timeoutMs, 'ms with 0 entries');
   }
@@ -174,31 +223,49 @@ export class MultiDeviceManager {
     return { dbAddress: this._dbAddress, identity: this._identity };
   }
 
+  /**
+   * Link to Device A by peer id. Uses addresses already in libp2p’s peer store (e.g. from pubsub
+   * discovery + autodial). Optional legacy shape: `{ peerId, multiaddrs }` for explicit dials.
+   * @param {string|{ peerId: string, multiaddrs?: string[] }} qrPayload
+   */
   async linkToDevice(qrPayload) {
     if (!this._orbitdb) {
       throw new Error('orbitdb not provided. Pass orbitdb, ipfs, libp2p, identity in config.');
     }
 
-    console.log('[linkToDevice] QR payload:', JSON.stringify(qrPayload));
+    const { peerId, multiaddrs } = MultiDeviceManager._normalizeLinkPayload(qrPayload);
+    console.log('[linkToDevice] Target peerId:', peerId, 'hint addrs:', multiaddrs.length);
     console.log('[linkToDevice] My peerId:', this._libp2p?.peerId?.toString());
 
     const result = await sendPairingRequest(
       this._libp2p,
-      qrPayload.peerId,
+      peerId,
       {
         id: this._identity.id,
         orbitdbIdentityId: this._orbitdb?.identity?.id || null,
-        credentialId: this._credential?.credentialId || this._credential?.id || this._libp2p.peerId.toString(),
+        credentialId:
+          this._credential?.credentialId || this._credential?.id || this._libp2p.peerId.toString(),
         publicKey: null,
         deviceLabel: detectDeviceLabel(),
       },
-      qrPayload.multiaddrs || []
+      multiaddrs
     );
+
+    pairingFlow('BOB', 'linkToDevice: sendPairingRequest finished', {
+      type: result?.type,
+      hasOrbitdbAddress: result?.type === 'granted' && !!result.orbitdbAddress,
+      reason: result?.reason,
+    });
 
     if (result.type === 'rejected') return result;
 
     console.log('[linkToDevice] Got granted, opening database...');
-    this._devicesDb = await openDeviceRegistry(this._orbitdb, this._identity.id, result.orbitdbAddress);
+    pairingFlow('BOB', 'opening shared OrbitDB registry at address from Alice…');
+    this._devicesDb = await openDeviceRegistry(
+      this._orbitdb,
+      this._identity.id,
+      result.orbitdbAddress
+    );
     this._dbAddress = this._devicesDb.address;
     console.log('[linkToDevice] Database opened, waiting for Device A entries to sync...');
 
@@ -207,6 +274,13 @@ export class MultiDeviceManager {
     await this._waitForEntries(15000);
     await this._finalizeDb();
 
+    pairingFlow(
+      'BOB',
+      'linkToDevice complete: registry open + sync listeners + handler re-registered',
+      {
+        dbAddress: String(this._dbAddress || '').slice(0, 56) + '…',
+      }
+    );
     return { type: 'granted', dbAddress: this._dbAddress };
   }
 
@@ -219,11 +293,20 @@ export class MultiDeviceManager {
     const peerId = this._libp2p.peerId.toString();
     const filtered = this._libp2p.getMultiaddrs().filter((ma) => {
       const lower = ma.toString().toLowerCase();
-      return (lower.includes('/ws/') || lower.includes('/wss/') || lower.includes('/webtransport') || lower.includes('/p2p-circuit'))
-        && !lower.includes('/webrtc')
-        && !lower.includes('/ip4/127.') && !lower.includes('/ip4/localhost') && !lower.includes('/ip6/::1');
+      return (
+        (lower.includes('/ws/') ||
+          lower.includes('/wss/') ||
+          lower.includes('/webtransport') ||
+          lower.includes('/p2p-circuit')) &&
+        !lower.includes('/webrtc') &&
+        !lower.includes('/ip4/127.') &&
+        !lower.includes('/ip4/localhost') &&
+        !lower.includes('/ip6/::1')
+      );
     });
-    const multiaddrs = sortPairingMultiaddrs(filtered).map((ma) => ma.toString());
+    const sorted = sortPairingMultiaddrs(filtered);
+    const capped = sorted.slice(0, PAIRING_HINT_ADDR_CAP);
+    const multiaddrs = capped.map((ma) => ma.toString());
     return { peerId, multiaddrs };
   }
 
@@ -254,9 +337,7 @@ export class MultiDeviceManager {
       return { type: 'granted', orbitdbAddress: this._dbAddress };
     }
 
-    const decision = this._onPairingRequest
-      ? await this._onPairingRequest(requestMsg)
-      : 'granted';
+    const decision = this._onPairingRequest ? await this._onPairingRequest(requestMsg) : 'granted';
 
     if (decision === 'granted') {
       await grantDeviceWriteAccess(this._devicesDb, identity.id);
