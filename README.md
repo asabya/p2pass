@@ -1,5 +1,7 @@
 # p2p-passkeys
 
+[![Tests](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml/badge.svg)](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml)
+
 Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup.
 
 Drop in `<StorachaFab />` and get:
@@ -31,7 +33,7 @@ The component handles everything internally:
 
 1. Click the floating Storacha button (bottom-right)
 2. "Authenticate with Passkey" → biometric prompt → DID created
-3. Two tabs appear: **Storacha** (backup/restore) and **P2P Passkeys** (device linking)
+3. Two tabs appear: **P2P Passkeys** (device linking) and **Storacha** (backup/restore); P2P Passkeys is the default
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
 5. P2P Passkeys tab shows connection status, peer info, and linked devices
 
@@ -205,6 +207,37 @@ npm run dev:example    # Run example app
 npm test               # Run unit tests
 npm run package        # Build library
 ```
+
+### End-to-end tests
+
+Playwright drives the **example app** in Chromium with virtual WebAuthn. Tests live in `e2e/` (for example `link-devices.spec.js` for multi-device pairing).
+
+**Run:**
+
+```bash
+npm run test:e2e       # headless; starts relay + Vite automatically
+npm run test:e2e:ui    # Playwright UI mode (debugging)
+```
+
+`playwright.config.js` starts **`scripts/e2e-with-relay.mjs`**, which:
+
+1. Launches **orbitdb-relay-pinner** (local libp2p relay).
+2. Fetches WebSocket bootstrap multiaddrs from the relay’s HTTP API and passes them to Vite as **`VITE_BOOTSTRAP_PEERS`** so browsers can connect.
+3. Runs **`svelte-package`** and the **example Vite dev server** on port **5173**.
+
+First-time setup may require browser binaries:
+
+```bash
+npx playwright install chromium
+```
+
+**Reuse a running dev server** (you must still provide a relay and matching `VITE_BOOTSTRAP_PEERS` yourself if you skip the script):
+
+```bash
+PW_REUSE_SERVER=1 npm run test:e2e
+```
+
+Failed runs write HTML reports, screenshots, traces, and video under `test-results/` (see Playwright output for paths).
 
 ## Dependencies
 
