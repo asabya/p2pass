@@ -21,6 +21,7 @@ import {
   sendPairingRequest,
   registerLinkDeviceHandler,
   LINK_DEVICE_PROTOCOL,
+  sortPairingMultiaddrs,
 } from './pairing-protocol.js';
 
 export class MultiDeviceManager {
@@ -216,14 +217,14 @@ export class MultiDeviceManager {
   getPeerInfo() {
     if (!this._libp2p) throw new Error('Libp2p not initialized');
     const peerId = this._libp2p.peerId.toString();
-    const filteredMultiaddrs = this._libp2p.getMultiaddrs()
-      .map((ma) => ma.toString())
-      .filter((ma) => {
-        const lower = ma.toLowerCase();
-        return (lower.includes('/ws/') || lower.includes('/wss/') || lower.includes('/webtransport') || lower.includes('/p2p-circuit'))
-          && !lower.includes('/ip4/127.') && !lower.includes('/ip4/localhost') && !lower.includes('/ip6/::1');
-      });
-    return { peerId, multiaddrs: filteredMultiaddrs };
+    const filtered = this._libp2p.getMultiaddrs().filter((ma) => {
+      const lower = ma.toString().toLowerCase();
+      return (lower.includes('/ws/') || lower.includes('/wss/') || lower.includes('/webtransport') || lower.includes('/p2p-circuit'))
+        && !lower.includes('/webrtc')
+        && !lower.includes('/ip4/127.') && !lower.includes('/ip4/localhost') && !lower.includes('/ip6/::1');
+    });
+    const multiaddrs = sortPairingMultiaddrs(filtered).map((ma) => ma.toString());
+    return { peerId, multiaddrs };
   }
 
   async listDevices() {

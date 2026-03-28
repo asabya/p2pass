@@ -6,7 +6,7 @@ export { default as StorachaIntegration } from './ui/StorachaIntegration.svelte'
 export { default as StorachaFab } from './ui/StorachaFab.svelte';
 
 // Identity
-export { IdentityService } from './identity/identity-service.js';
+export { IdentityService, hasLocalPasskeyHint } from './identity/identity-service.js';
 export { detectSigningMode, getStoredSigningMode } from './identity/mode-detector.js';
 
 // UCAN / Storacha auth
@@ -45,7 +45,9 @@ export {
 	registerLinkDeviceHandler,
 	unregisterLinkDeviceHandler,
 	sendPairingRequest,
-	detectDeviceLabel
+	detectDeviceLabel,
+	sortPairingMultiaddrs,
+	filterPairingDialMultiaddrs
 } from './registry/pairing-protocol.js';
 
 // P2P stack setup

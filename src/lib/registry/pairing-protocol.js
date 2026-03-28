@@ -21,6 +21,105 @@ import { peerIdFromString } from '@libp2p/peer-id';
 
 export const LINK_DEVICE_PROTOCOL = '/orbitdb/link-device/1.0.0';
 
+/** Relay / DCUtR paths often use a limited connection; libp2p requires this to open app streams. */
+const NEW_STREAM_ON_LIMITED = { runOnLimitedConnection: true };
+
+/**
+ * Order dial candidates so cross-browser linking usually tries stable paths first:
+ * public DNS + WSS, then WS/TCP via relay; webrtc-direct and LAN-only last.
+ * @param {import('@multiformats/multiaddr').Multiaddr[]} parsed
+ */
+/**
+ * Strip WebRTC-based multiaddrs from pairing. Browser WebRTC-direct dials often hit
+ * "signal timed out" across NATs; relay + WSS/WS is reliable for link-device.
+ * @param {import('@multiformats/multiaddr').Multiaddr[]} parsed
+ */
+export function filterPairingDialMultiaddrs(parsed) {
+  const noWebrtc = parsed.filter((ma) => !ma.toString().toLowerCase().includes('/webrtc'));
+  if (noWebrtc.length < parsed.length) {
+    console.log(
+      `[pairing] Omitting ${parsed.length - noWebrtc.length} WebRTC multiaddr(s); using relay/WebSocket only`
+    );
+  }
+  return noWebrtc.length > 0 ? noWebrtc : parsed;
+}
+
+export function sortPairingMultiaddrs(parsed) {
+  const score = (ma) => {
+    const s = ma.toString().toLowerCase();
+    let n = 0;
+    if (s.includes('/webrtc')) n -= 100;
+    if (s.includes('/wss/')) n += 80;
+    if (s.includes('/tcp/443/')) n += 30;
+    if (s.includes('/ws/') && !s.includes('wss')) n += 20;
+    if (s.includes('/dns4/') || s.includes('/dns6/') || s.includes('/dnsaddr/')) n += 15;
+    if (/\/ip4\/(10\.|192\.168\.|127\.)/.test(s)) n -= 50;
+    if (/\/ip6\/f[cd][0-9a-f]{2}:/i.test(s)) n -= 50;
+    return n;
+  };
+  return [...parsed].sort((a, b) => score(b) - score(a));
+}
+
+/**
+ * Open the link-device stream after a relay/circuit dial.
+ * Uses `libp2p.dialProtocol(peerId, …)` so the connection manager reuses the new
+ * connection (same as the no-hint path). Raw `connection.newStream` right after
+ * `dial(multiaddr)` often races the muxer and yields AbortError / UnexpectedEOFError.
+ */
+async function newLinkDeviceStreamWithRetry(libp2p, deviceAPeerId, maxAttempts = 6) {
+  let lastErr;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      if (i > 0) {
+        const delay = 300 + 400 * (i - 1);
+        console.log(`[pairing] Retrying dialProtocol (${i + 1}/${maxAttempts}) after ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return await libp2p.dialProtocol(deviceAPeerId, LINK_DEVICE_PROTOCOL, NEW_STREAM_ON_LIMITED);
+    } catch (e) {
+      lastErr = e;
+      const msg = e?.message ?? String(e);
+      const name = e?.name ?? '';
+      const retryable =
+        name === 'AbortError' ||
+        /abort|aborted|reset|closed|not readable|mux|eof|unexpected end|UnexpectedEOF/i.test(
+          msg
+        );
+      if (!retryable || i === maxAttempts - 1) {
+        throw e;
+      }
+      console.warn('[pairing] dialProtocol attempt failed:', name || msg);
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Try each multiaddr in order. Avoids a single bad path (e.g. long WebRTC) stalling a batch dial.
+ * @param {import('@libp2p/interface').Libp2p} libp2p
+ * @param {import('@multiformats/multiaddr').Multiaddr[]} ordered
+ */
+async function dialPairingSequential(libp2p, ordered) {
+  const PER_ATTEMPT_MS = 25_000;
+  let lastErr;
+  for (let i = 0; i < ordered.length; i++) {
+    const ma = ordered[i];
+    try {
+      console.log(`[pairing] Dial ${i + 1}/${ordered.length}:`, ma.toString());
+      const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+        ? AbortSignal.timeout(PER_ATTEMPT_MS)
+        : undefined;
+      return await libp2p.dial(ma, signal ? { signal } : {});
+    } catch (e) {
+      lastErr = e;
+      console.warn('[pairing] Dial attempt failed:', e?.name, e?.message);
+    }
+  }
+  throw lastErr ?? new Error('No multiaddrs to dial');
+}
+
 function decodeMessage(bytes) {
   const raw = typeof bytes.subarray === 'function' ? bytes.subarray() : bytes;
   return JSON.parse(new TextDecoder().decode(raw));
@@ -193,17 +292,42 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
         throw new Error(`No valid multiaddrs for deviceAPeerId: ${deviceAPeerId}`);
       }
 
-      console.log('[pairing] Dialing parsed multiaddrs:', parsedMultiaddrs.map(m => m.toString()));
-      const connection = await libp2p.dial(parsedMultiaddrs);
-      console.log('[pairing] Dial successful, connection:', connection.remotePeer.toString());
-      stream = await connection.newStream(LINK_DEVICE_PROTOCOL);
-      console.log('[pairing] Stream created');
+      const forDial = sortPairingMultiaddrs(filterPairingDialMultiaddrs(parsedMultiaddrs));
+      console.log('[pairing] Dial order (best first):', forDial.map((m) => m.toString()));
+
+      let connection;
+      try {
+        connection = await dialPairingSequential(libp2p, forDial);
+      } catch (e) {
+        console.error('[pairing] All dial attempts failed. Last error:', e?.name, e?.message);
+        throw new Error(`Failed to dial Device A: ${e.message}`);
+      }
+
+      const remoteStr = connection.remotePeer.toString();
+      console.log('[pairing] Dial successful, remote:', remoteStr);
+      if (remoteStr !== peerId.toString()) {
+        console.warn(
+          '[pairing] Connection remote peer does not match pasted Device A peerId — check peer info JSON.',
+          { expected: peerId.toString(), actual: remoteStr }
+        );
+      }
+
+      try {
+        stream = await newLinkDeviceStreamWithRetry(libp2p, peerId);
+        console.log('[pairing] Link-device stream ready');
+      } catch (e) {
+        console.error('[pairing] dialProtocol failed (dial OK):', e?.name, e?.message);
+        throw new Error(`Failed to open link-device stream: ${e.message}`);
+      }
     } catch (e) {
-      console.error('[pairing] Dial failed:', e.message);
+      if (e.message?.startsWith('Failed to dial') || e.message?.startsWith('Failed to open link-device')) {
+        throw e;
+      }
+      console.error('[pairing] Pairing transport error:', e?.message);
       throw new Error(`Failed to connect to Device A: ${e.message}`);
     }
   } else {
-    stream = await libp2p.dialProtocol(peerId, LINK_DEVICE_PROTOCOL);
+    stream = await libp2p.dialProtocol(peerId, LINK_DEVICE_PROTOCOL, NEW_STREAM_ON_LIMITED);
   }
 
   const lp = lpStream(stream);

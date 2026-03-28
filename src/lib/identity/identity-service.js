@@ -9,6 +9,7 @@
 import {
 	WebAuthnHardwareSignerService,
 	loadWebAuthnCredentialSafe,
+	getStoredWebAuthnHardwareSignerInfo,
 	extractPrfSeedFromCredential,
 	initEd25519KeystoreWithPrfSeed,
 	generateWorkerEd25519DID,
@@ -28,6 +29,36 @@ import {
 import { computeDeterministicPrfSalt, deriveIPNSKeyPair, recoverPrfSeed } from '../recovery/ipns-key.js';
 
 const ARCHIVE_CACHE_KEY = 'p2p_passkeys_worker_archive';
+
+/**
+ * Best-effort: this origin likely already has passkey / identity material (no WebAuthn prompt).
+ * Uses the same signals as restore paths — false negatives are OK (same handlers still apply).
+ *
+ * @returns {boolean}
+ */
+export function hasLocalPasskeyHint() {
+	if (typeof globalThis.localStorage === 'undefined') return false;
+	try {
+		const hw = getStoredWebAuthnHardwareSignerInfo();
+		if (hw?.did) return true;
+	} catch {
+		/* ignore */
+	}
+	try {
+		if (loadWebAuthnCredentialSafe()) return true;
+	} catch {
+		/* ignore */
+	}
+	try {
+		const raw = localStorage.getItem(ARCHIVE_CACHE_KEY);
+		if (!raw) return false;
+		const parsed = JSON.parse(raw);
+		if (parsed && (parsed.did || parsed.ciphertext)) return true;
+	} catch {
+		/* ignore */
+	}
+	return false;
+}
 
 export class IdentityService {
 	#mode = null;

@@ -1,8 +1,9 @@
 # p2p-passkeys
 
-Standalone Svelte component for P2P passkey-based DID identities with [Storacha](https://storacha.network) decentralized backup.
+Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup.
 
 Drop in `<StorachaFab />` and get:
+
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
 - OrbitDB backup/restore with progress tracking
@@ -32,6 +33,7 @@ npm install p2p-passkeys
 ```
 
 The component handles everything internally:
+
 1. Click the floating Storacha button (bottom-right)
 2. "Authenticate with Passkey" → biometric prompt → DID created
 3. Two tabs appear: **Storacha** (backup/restore) and **P2P Passkeys** (device linking)

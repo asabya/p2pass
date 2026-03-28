@@ -36,6 +36,8 @@ export {
   unregisterLinkDeviceHandler,
   sendPairingRequest,
   detectDeviceLabel,
+  sortPairingMultiaddrs,
+  filterPairingDialMultiaddrs,
 } from './pairing-protocol.js';
 
 // Manager
