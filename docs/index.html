@@ -272,7 +272,7 @@ footer{
     <div class="container">
       <h1>Passkey Identity.<br>Peer-to-Peer.</h1>
       <p class="tagline">
-        Drop-in component for WebAuthn passkey authentication, decentralized identity, and encrypted backup with Storacha. One import, full stack.
+        Build peer-to-peer passkey identities for multi-device apps. Authenticate with WebAuthn, link devices directly over libp2p, and optionally add Storacha backup for recovery.
       </p>
       <div class="hero-buttons">
         <a href="/p2p-passkeys/guide/" class="btn btn-primary">Get Started</a>
@@ -289,25 +289,25 @@ footer{
       <h2>Everything You Need</h2>
       <div class="features-grid">
         <div class="feature-card">
-          <div class="feature-icon feature-icon-red">
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
-          </div>
-          <h3>Passkey Authentication</h3>
-          <p>WebAuthn biometric auth with auto-detection of hardware Ed25519, P-256, or worker-derived keys. PRF seed extraction for deterministic DID generation.</p>
-        </div>
-        <div class="feature-card">
           <div class="feature-icon feature-icon-yellow">
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
           </div>
           <h3>P2P Device Linking</h3>
-          <p>Link multiple devices over libp2p with an approval-based pairing protocol. OrbitDB registry keeps credentials, delegations, and archives in sync.</p>
+          <p>Link multiple devices directly over libp2p with an approval-based pairing protocol. OrbitDB becomes the shared registry for credentials, linked devices, and encrypted identity state.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-red">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+          </div>
+          <h3>Passkey DID Identity</h3>
+          <p>WebAuthn biometric auth with auto-detection of hardware Ed25519, P-256, or worker-derived keys. PRF seed extraction gives each user a deterministic decentralized identity.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon feature-icon-blue">
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
           </div>
-          <h3>Storacha Backup</h3>
-          <p>UCAN-delegated backup and restore to Storacha decentralized storage. IPNS recovery manifest for cross-device identity restoration.</p>
+          <h3>Optional Backup and Recovery</h3>
+          <p>Use UCAN-delegated Storacha storage for encrypted backup and recovery. The live multi-device path is peer-to-peer; Storacha is there when you need durable restore.</p>
         </div>
       </div>
     </div>
@@ -322,16 +322,16 @@ footer{
           <p>User taps biometric prompt. WebAuthn PRF seed derives an Ed25519 DID.</p>
         </div>
         <div class="step">
-          <h4>Connect P2P</h4>
-          <p>libp2p + Helia + OrbitDB stack initializes. Device registers in the shared registry.</p>
+          <h4>Start the P2P Stack</h4>
+          <p>libp2p, Helia, and OrbitDB initialize locally. The current device joins the shared identity registry.</p>
         </div>
         <div class="step">
-          <h4>Import Delegation</h4>
-          <p>Paste a UCAN delegation string to connect to a Storacha space for encrypted backup.</p>
+          <h4>Link Another Device</h4>
+          <p>Exchange peer info, approve the pairing request, and let the second device join the same OrbitDB-backed identity graph.</p>
         </div>
         <div class="step">
-          <h4>Backup & Sync</h4>
-          <p>One-click backup to Storacha. IPNS manifest published for recovery on any device.</p>
+          <h4>Add Backup if Needed</h4>
+          <p>Optionally import a UCAN delegation and publish encrypted backup state to Storacha for recovery on a fresh device.</p>
         </div>
       </div>
     </div>
@@ -361,7 +361,7 @@ footer{
     <div class="footer-inner">
       <div class="footer-brand">
         <h4>p2p-passkeys</h4>
-        <p>Passkey-based DID identities with P2P sync and Storacha decentralized backup.</p>
+        <p>Peer-to-peer passkey identities for multi-device apps, with Storacha backup available when recovery matters.</p>
       </div>
       <div class="footer-links">
         <h5>Documentation</h5>

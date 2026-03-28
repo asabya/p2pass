@@ -18,7 +18,7 @@ export default defineConfig({
 	],
 	resolve: {
 		alias: {
-			'p2p-passkeys': path.resolve(__dirname, '../../dist')
+			'p2p-passkeys': path.resolve(__dirname, '../../src/lib')
 		}
 	},
 	optimizeDeps: {

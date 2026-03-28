@@ -196,10 +196,35 @@ const stack = await setupP2PStack(credential);
 ## Development
 
 ```bash
-npm run dev:example    # Run example app
+npm run dev:svelte     # Run the Svelte example app
 npm test               # Run unit tests
+npm run test:e2e       # Run Playwright E2E tests
+npm run test:e2e:headed
 npm run package        # Build library
 ```
+
+## Testing
+
+The Playwright suite covers:
+- widget tab order and tab switching
+- passkey authentication and DID display/copy
+- peer info copy and invalid peer info handling
+- p2p passkeys multi-device flows, including pairing approval and known-device auto-grant
+
+Run the full Chromium E2E suite locally with:
+
+```bash
+npm run test:e2e -- --project=chromium --reporter=line
+```
+
+## CI
+
+GitHub Actions runs the Playwright E2E suite on:
+- every pull request
+- every push to `master`
+
+Workflow file:
+- `.github/workflows/e2e.yml`
 
 ## Dependencies
 

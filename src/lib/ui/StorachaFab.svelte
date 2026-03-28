@@ -23,6 +23,7 @@
 	onclick={() => (showPanel = !showPanel)}
 	onmouseenter={() => (isHovered = true)}
 	onmouseleave={() => (isHovered = false)}
+	data-testid="storacha-fab-button"
 	title={showPanel ? 'Hide Storacha Backup' : 'Open Storacha - Decentralized Storage'}
 	aria-label={showPanel ? 'Hide Storacha backup integration' : 'Open Storacha backup integration'}
 	style="
@@ -84,6 +85,7 @@
 
 <!-- Floating panel — kept alive, hidden via CSS to preserve state -->
 <div
+	data-testid="storacha-fab-panel"
 	style="
 		position: fixed;
 		right: 1.5rem;
