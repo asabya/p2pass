@@ -1,7 +1,7 @@
 {
 	"name": "p2p-passkeys",
 	"version": "0.1.0",
-	"private": true,
+	"private": false,
 	"type": "module",
 	"description": "P2P passkey-based DID identities with OrbitDB registry sync and Storacha backup",
 	"license": "MIT",
@@ -14,6 +14,8 @@
 		"build:demo": "BASE_URL=/p2p-passkeys/demo/ vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"test:e2e": "playwright test",
+		"test:e2e:headed": "playwright test --headed --project=chromium",
 		"package": "svelte-package && publint",
 		"prepublishOnly": "npm run package",
 		"check": "svelte-check --tsconfig ./jsconfig.json"
@@ -35,8 +37,12 @@
 		"react-dom": "^18.0.0 || ^19.0.0"
 	},
 	"peerDependenciesMeta": {
-		"react": { "optional": true },
-		"react-dom": { "optional": true }
+		"react": {
+			"optional": true
+		},
+		"react-dom": {
+			"optional": true
+		}
 	},
 	"files": [
 		"dist",
@@ -44,6 +50,7 @@
 		"!dist/**/*.spec.*"
 	],
 	"devDependencies": {
+		"@playwright/test": "^1.58.2",
 		"@sveltejs/package": "^2.3.10",
 		"@sveltejs/vite-plugin-svelte": "^6.1.4",
 		"@tailwindcss/vite": "^4.1.17",

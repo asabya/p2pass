@@ -38,6 +38,30 @@ The component handles everything internally:
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
 5. P2P Passkeys tab shows connection status, peer info, and linked devices
 
+## React Usage
+
+```jsx
+import { useRef } from 'react';
+import { StorachaFab } from 'p2p-passkeys/react';
+
+function App() {
+  const fabRef = useRef(null);
+
+  return <StorachaFab ref={fabRef} preferWorkerMode={true} />;
+}
+```
+
+The React wrapper works, but it is less tested than the native Svelte component. If you want the most reliable integration and the best user experience, prefer the Svelte component.
+
+For React, pass plain values and callbacks as normal props, but update live service objects through the wrapper ref:
+
+```jsx
+fabRef.current?.setLibp2p(libp2p);
+fabRef.current?.setOrbitdb(orbitdb);
+fabRef.current?.setDatabase(database);
+fabRef.current?.updateServices({ libp2p, orbitdb, database });
+```
+
 ## Worker Ed25519 Passkey Flow
 
 Worker mode (`preferWorkerMode={true}`) uses WebAuthn purely for user verification and PRF seed extraction — the actual signing key is an Ed25519 keypair generated in a web worker, encrypted with the PRF-derived key.
@@ -145,7 +169,7 @@ Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-devic
 
 ## Props
 
-When using `StorachaFab` or `StorachaIntegration` directly:
+When using the Svelte components directly:
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -159,6 +183,8 @@ When using `StorachaFab` or `StorachaIntegration` directly:
 | `onAuthenticate` | function | `() => {}` | Called after passkey auth (receives signingMode) |
 | `libp2p` | object | `null` | libp2p instance for P2P connectivity |
 | `preferWorkerMode` | boolean | `false` | Skip hardware mode, use worker Ed25519 |
+
+For React wrappers, `orbitdb`, `database`, and `libp2p` should be updated through the component ref instead of passed as live React props.
 
 ## Components
 
@@ -196,10 +222,35 @@ const stack = await setupP2PStack(credential);
 ## Development
 
 ```bash
-npm run dev:example    # Run example app
+npm run dev:svelte     # Run the Svelte example app
 npm test               # Run unit tests
+npm run test:e2e       # Run Playwright E2E tests
+npm run test:e2e:headed
 npm run package        # Build library
 ```
+
+## Testing
+
+The Playwright suite covers:
+- widget tab order and tab switching
+- passkey authentication and DID display/copy
+- peer info copy and invalid peer info handling
+- p2p passkeys multi-device flows, including pairing approval and known-device auto-grant
+
+Run the full Chromium E2E suite locally with:
+
+```bash
+npm run test:e2e -- --project=chromium --reporter=line
+```
+
+## CI
+
+GitHub Actions runs the Playwright E2E suite on:
+- every pull request
+- every push to `master`
+
+Workflow file:
+- `.github/workflows/e2e.yml`
 
 ## Dependencies
 

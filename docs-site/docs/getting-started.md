@@ -42,15 +42,26 @@ For full control, use `StorachaIntegration` directly:
 ## React Usage
 
 ```jsx
+import { useRef } from 'react';
 import { StorachaFab } from 'p2p-passkeys/react';
 
 function App() {
-  return <StorachaFab preferWorkerMode={true} />;
+  const fabRef = useRef(null);
+
+  return <StorachaFab ref={fabRef} preferWorkerMode={true} />;
 }
 ```
 
 :::info
 React consumers need `svelte` and `@sveltejs/vite-plugin-svelte` in their Vite config since the Svelte components are compiled at build time.
+:::
+
+:::warning
+For React, live service objects like `libp2p`, `orbitdb`, and `database` should be set through the wrapper ref, not passed as normal React props.
+:::
+
+:::warning
+The React wrapper is less tested than the native Svelte component. For the most reliable integration and best user experience, prefer the Svelte component when you can.
 :::
 
 ## Props
@@ -67,6 +78,15 @@ React consumers need `svelte` and `@sveltejs/vite-plugin-svelte` in their Vite c
 | `onAuthenticate` | `function` | `() => {}` | Called after passkey auth (awaited) |
 | `libp2p` | `object` | `null` | libp2p instance for P2P |
 | `preferWorkerMode` | `boolean` | `false` | Use worker Ed25519 instead of hardware |
+
+For React wrappers, use these ref methods for live service updates:
+
+```jsx
+fabRef.current?.setLibp2p(libp2p);
+fabRef.current?.setOrbitdb(orbitdb);
+fabRef.current?.setDatabase(database);
+fabRef.current?.updateServices({ libp2p, orbitdb, database });
+```
 
 ## With P2P Stack
 
