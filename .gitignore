@@ -20,6 +20,7 @@ vendor/
 dist/
 build/
 bin/
+.svelte-kit/
 
 # Logs
 *.log
