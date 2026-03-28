@@ -60,6 +60,10 @@ React consumers need `svelte` and `@sveltejs/vite-plugin-svelte` in their Vite c
 For React, live service objects like `libp2p`, `orbitdb`, and `database` should be set through the wrapper ref, not passed as normal React props.
 :::
 
+:::warning
+The React wrapper is less tested than the native Svelte component. For the most reliable integration and best user experience, prefer the Svelte component when you can.
+:::
+
 ## Props
 
 | Prop | Type | Default | Description |

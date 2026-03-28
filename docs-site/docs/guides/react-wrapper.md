@@ -6,6 +6,10 @@ sidebar_position: 1
 
 The library provides React wrapper components that mount the existing Svelte widget into a DOM node.
 
+:::warning
+The React wrapper is less tested than the native Svelte component. If you want the most reliable integration and the best end-user experience, prefer the Svelte component when possible.
+:::
+
 ## How It Works
 
 A `.svelte.js` bridge file uses Svelte 5's `$state` runes to create reactive props. The React wrapper mounts the Svelte component once, then updates plain props reactively and live service objects imperatively through a `ref`.

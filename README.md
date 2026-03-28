@@ -51,6 +51,8 @@ function App() {
 }
 ```
 
+The React wrapper works, but it is less tested than the native Svelte component. If you want the most reliable integration and the best user experience, prefer the Svelte component.
+
 For React, pass plain values and callbacks as normal props, but update live service objects through the wrapper ref:
 
 ```jsx
