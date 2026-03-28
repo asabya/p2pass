@@ -20,6 +20,7 @@
 
 <!-- Floating Storacha FAB Button -->
 <button
+	data-testid="storacha-fab-toggle"
 	onclick={() => (showPanel = !showPanel)}
 	onmouseenter={() => (isHovered = true)}
 	onmouseleave={() => (isHovered = false)}

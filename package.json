@@ -8,6 +8,8 @@
 	"scripts": {
 		"dev:example": "vite --config example/vite.config.js",
 		"build:example": "vite build --config example/vite.config.js",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"package": "svelte-package && publint",
@@ -28,6 +30,7 @@
 		"!dist/**/*.spec.*"
 	],
 	"devDependencies": {
+		"@playwright/test": "^1.51.0",
 		"@sveltejs/package": "^2.3.10",
 		"@sveltejs/vite-plugin-svelte": "^6.1.4",
 		"@tailwindcss/vite": "^4.1.17",
@@ -70,6 +73,7 @@
 		"libp2p": "^2.9.0",
 		"lucide-svelte": "^0.500.0",
 		"multiformats": "^13.3.7",
+		"orbitdb-relay-pinner": "^0.5.0",
 		"orbitdb-storacha-bridge": "^0.4.2",
 		"w3name": "^1.1.3"
 	},

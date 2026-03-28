@@ -981,12 +981,14 @@
 	</div>
 	<div style="display: flex; gap: 0.5rem;">
 		<button
+			data-testid="storacha-pairing-approve"
 			onclick={() => handlePairDecision('granted')}
 			style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
 		>
 			Approve
 		</button>
 		<button
+			data-testid="storacha-pairing-deny"
 			onclick={() => handlePairDecision('rejected')}
 			style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
 		>
@@ -1014,7 +1016,7 @@
 						{:else}
 							<div style="display: flex; flex-direction: column; gap: 0.375rem;">
 								{#each devices as device}
-									<div style="display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem; border-radius: 0.375rem; background: rgba(255, 255, 255, 0.7); border-left: 3px solid {device.status === 'active' ? '#10b981' : '#E91315'};">
+									<div data-testid="storacha-linked-device-row" data-device-label={device.device_label || ''} style="display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem; border-radius: 0.375rem; background: rgba(255, 255, 255, 0.7); border-left: 3px solid {device.status === 'active' ? '#10b981' : '#E91315'};">
 										<div style="font-size: 1rem; flex-shrink: 0;">
 											{device.device_label === 'Mac' ? '\uD83D\uDCBB' : device.device_label === 'Windows PC' ? '\uD83D\uDDA5\uFE0F' : device.device_label === 'Linux' ? '\uD83D\uDC27' : '\uD83D\uDCF1'}
 										</div>
@@ -1037,6 +1039,7 @@
 {/snippet}
 
 <div
+	data-testid="storacha-panel"
 	class="storacha-panel"
 	style="max-height: 70vh; overflow-y: auto; border-radius: 0.75rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #FFE4AE, #EFE3F3); padding: 1rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
 >
@@ -1238,6 +1241,7 @@
 							{passkeyStepHint}
 						</div>
 						<button
+							data-testid="storacha-passkey-primary"
 							class="storacha-btn-primary"
 							onclick={handleAuthenticate}
 							disabled={isAuthenticating}
@@ -1378,6 +1382,7 @@
 							{/if}
 							<div style="display: flex; flex-direction: column; gap: 0.75rem;">
 								<textarea
+									data-testid="storacha-link-peer-input"
 									bind:value={linkInput}
 									placeholder='Paste peer info JSON here...'
 									rows="4"
@@ -1387,6 +1392,8 @@
 									<div style="font-size: 0.7rem; color: #dc2626; font-family: 'DM Sans', sans-serif;">{linkError}</div>
 								{/if}
 								<button
+									data-testid="storacha-link-device-submit"
+									data-mdm-ready={linkDeviceReady ? 'true' : 'false'}
 									type="button"
 									onclick={handleLinkDevice}
 									disabled={linkDeviceDisabled}
@@ -1419,6 +1426,7 @@
 						Storacha
 					</button>
 					<button
+						data-testid="storacha-tab-passkeys"
 						onclick={() => handleTabSwitch('passkeys')}
 						style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab === 'passkeys' ? 'linear-gradient(135deg, #E91315, #FFC83F)' : 'transparent'}; color: {activeTab === 'passkeys' ? '#fff' : '#6B7280'}; box-shadow: {activeTab === 'passkeys' ? '0 2px 8px rgba(233, 19, 21, 0.3)' : 'none'};"
 					>
@@ -1435,7 +1443,7 @@
 								<div style="display: flex; align-items: center; gap: 0.25rem;">
 									<div style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background: {p2pLedDotBg}; box-shadow: {p2pLedShadow}; animation: {p2pLedPulse ? 'pulse 2s infinite' : 'none'};"></div>
 									{#if libp2p}
-										<span title="Connected libp2p peers" style="font-size: 0.65rem; font-weight: 700; font-family: 'DM Mono', monospace; color: {p2pLedTextColor}; line-height: 1; min-width: 0.65rem; text-align: center;">{p2pRemotePeerCount}</span>
+										<span data-testid="storacha-p2p-remote-peer-count" title="Connected libp2p peers" style="font-size: 0.65rem; font-weight: 700; font-family: 'DM Mono', monospace; color: {p2pLedTextColor}; line-height: 1; min-width: 0.65rem; text-align: center;">{p2pRemotePeerCount}</span>
 									{/if}
 								</div>
 								<span style="font-size: 0.75rem; font-weight: 600; color: {p2pLedTextColor}; font-family: 'Epilogue', sans-serif;">
@@ -1447,7 +1455,7 @@
 									<code style="font-size: 0.6rem; color: #E91315; font-family: 'DM Mono', monospace; background: rgba(233, 19, 21, 0.06); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">
 										{libp2p.peerId.toString().slice(0, 8)}...{libp2p.peerId.toString().slice(-4)}
 									</code>
-									<button onclick={handleCopyPeerInfo} title="Copy peer info to clipboard" style="display: flex; align-items: center; justify-content: center; height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border: none; background: transparent; cursor: pointer; color: #E91315; padding: 0; transition: all 150ms;">
+									<button data-testid="storacha-copy-peer-info" onclick={handleCopyPeerInfo} title="Copy peer info to clipboard" style="display: flex; align-items: center; justify-content: center; height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border: none; background: transparent; cursor: pointer; color: #E91315; padding: 0; transition: all 150ms;">
 										<svg style="height: 0.7rem; width: 0.7rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
 										</svg>
@@ -1507,6 +1515,7 @@
 						Storacha
 					</button>
 					<button
+						data-testid="storacha-tab-passkeys"
 						onclick={() => handleTabSwitch('passkeys')}
 						style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab === 'passkeys' ? 'linear-gradient(135deg, #E91315, #FFC83F)' : 'transparent'}; color: {activeTab === 'passkeys' ? '#fff' : '#6B7280'}; box-shadow: {activeTab === 'passkeys' ? '0 2px 8px rgba(233, 19, 21, 0.3)' : 'none'};"
 					>
@@ -1662,7 +1671,7 @@
 								<div style="display: flex; align-items: center; gap: 0.25rem;">
 									<div style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background: {p2pLedDotBg}; box-shadow: {p2pLedShadow}; animation: {p2pLedPulse ? 'pulse 2s infinite' : 'none'};"></div>
 									{#if libp2p}
-										<span title="Connected libp2p peers" style="font-size: 0.65rem; font-weight: 700; font-family: 'DM Mono', monospace; color: {p2pLedTextColor}; line-height: 1; min-width: 0.65rem; text-align: center;">{p2pRemotePeerCount}</span>
+										<span data-testid="storacha-p2p-remote-peer-count" title="Connected libp2p peers" style="font-size: 0.65rem; font-weight: 700; font-family: 'DM Mono', monospace; color: {p2pLedTextColor}; line-height: 1; min-width: 0.65rem; text-align: center;">{p2pRemotePeerCount}</span>
 									{/if}
 								</div>
 								<span style="font-size: 0.75rem; font-weight: 600; color: {p2pLedTextColor}; font-family: 'Epilogue', sans-serif;">
@@ -1674,7 +1683,7 @@
 									<code style="font-size: 0.6rem; color: #E91315; font-family: 'DM Mono', monospace; background: rgba(233, 19, 21, 0.06); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">
 										{libp2p.peerId.toString().slice(0, 8)}...{libp2p.peerId.toString().slice(-4)}
 									</code>
-									<button onclick={handleCopyPeerInfo} title="Copy peer info to clipboard" style="display: flex; align-items: center; justify-content: center; height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border: none; background: transparent; cursor: pointer; color: #E91315; padding: 0; transition: all 150ms;">
+									<button data-testid="storacha-copy-peer-info" onclick={handleCopyPeerInfo} title="Copy peer info to clipboard" style="display: flex; align-items: center; justify-content: center; height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border: none; background: transparent; cursor: pointer; color: #E91315; padding: 0; transition: all 150ms;">
 										<svg style="height: 0.7rem; width: 0.7rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
 										</svg>
@@ -1711,6 +1720,7 @@
 							{/if}
 							<div style="display: flex; flex-direction: column; gap: 0.5rem;">
 								<textarea
+									data-testid="storacha-link-peer-input"
 									class="storacha-textarea"
 									bind:value={linkInput}
 									placeholder="Paste peer info JSON from another device..."
@@ -1718,6 +1728,8 @@
 									style="width: 100%; resize: none; border-radius: 0.375rem; border: 1px solid #E91315; background: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
 								></textarea>
 								<button
+									data-testid="storacha-link-device-submit"
+									data-mdm-ready={linkDeviceReady ? 'true' : 'false'}
 									type="button"
 									onclick={handleLinkDevice}
 									disabled={linkDeviceDisabled}

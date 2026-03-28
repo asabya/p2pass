@@ -25,3 +25,10 @@ bin/
 # Logs
 *.log
 CLAUDE.md
+
+# E2E / relay
+e2e/.bootstrap-peers
+e2e/relay-info.json
+relay/test-relay-datastore/
+test-results/
+playwright-report/
