@@ -38,6 +38,28 @@ The component handles everything internally:
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
 5. P2P Passkeys tab shows connection status, peer info, and linked devices
 
+## React Usage
+
+```jsx
+import { useRef } from 'react';
+import { StorachaFab } from 'p2p-passkeys/react';
+
+function App() {
+  const fabRef = useRef(null);
+
+  return <StorachaFab ref={fabRef} preferWorkerMode={true} />;
+}
+```
+
+For React, pass plain values and callbacks as normal props, but update live service objects through the wrapper ref:
+
+```jsx
+fabRef.current?.setLibp2p(libp2p);
+fabRef.current?.setOrbitdb(orbitdb);
+fabRef.current?.setDatabase(database);
+fabRef.current?.updateServices({ libp2p, orbitdb, database });
+```
+
 ## Worker Ed25519 Passkey Flow
 
 Worker mode (`preferWorkerMode={true}`) uses WebAuthn purely for user verification and PRF seed extraction — the actual signing key is an Ed25519 keypair generated in a web worker, encrypted with the PRF-derived key.
@@ -145,7 +167,7 @@ Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-devic
 
 ## Props
 
-When using `StorachaFab` or `StorachaIntegration` directly:
+When using the Svelte components directly:
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -159,6 +181,8 @@ When using `StorachaFab` or `StorachaIntegration` directly:
 | `onAuthenticate` | function | `() => {}` | Called after passkey auth (receives signingMode) |
 | `libp2p` | object | `null` | libp2p instance for P2P connectivity |
 | `preferWorkerMode` | boolean | `false` | Skip hardware mode, use worker Ed25519 |
+
+For React wrappers, `orbitdb`, `database`, and `libp2p` should be updated through the component ref instead of passed as live React props.
 
 ## Components
 

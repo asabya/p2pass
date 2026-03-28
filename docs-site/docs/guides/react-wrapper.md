@@ -8,10 +8,11 @@ The library provides React wrapper components that mount the existing Svelte wid
 
 ## How It Works
 
-A `.svelte.js` bridge file uses Svelte 5's `$state` runes to create reactive props. The React wrapper uses `useRef` + `useEffect` to mount and update the Svelte component.
+A `.svelte.js` bridge file uses Svelte 5's `$state` runes to create reactive props. The React wrapper mounts the Svelte component once, then updates plain props reactively and live service objects imperatively through a `ref`.
 
 ```
 React props → bridge.update() → $state mutation → Svelte reactivity
+React ref methods → bridge.update() → live service updates
 ```
 
 ## Installation
@@ -46,27 +47,39 @@ export default {
 ## Usage
 
 ```jsx
+import { useEffect, useRef } from 'react';
 import { StorachaFab } from 'p2p-passkeys/react';
 import { setupP2PStack, createLibp2pInstance } from 'p2p-passkeys';
 
 function App() {
-  const [orbitdb, setOrbitdb] = useState(null);
-  const [libp2p, setLibp2p] = useState(null);
+  const fabRef = useRef(null);
+  const libp2pRef = useRef(null);
+  const p2pStackRef = useRef(null);
 
   useEffect(() => {
-    createLibp2pInstance().then(setLibp2p);
+    createLibp2pInstance().then((libp2p) => {
+      libp2pRef.current = libp2p;
+      fabRef.current?.setLibp2p(libp2p);
+    });
+
+    return () => {
+      if (libp2pRef.current) libp2pRef.current.stop();
+    };
   }, []);
 
-  const handleAuthenticate = useCallback(async (signingMode) => {
-    const stack = await setupP2PStack(null, { libp2p });
-    setOrbitdb(stack.orbitdb);
-    setLibp2p(stack.libp2p);
-  }, [libp2p]);
+  async function handleAuthenticate() {
+    const stack = await setupP2PStack(null, { libp2p: libp2pRef.current });
+    p2pStackRef.current = stack;
+    libp2pRef.current = stack.libp2p;
+    fabRef.current?.updateServices({
+      orbitdb: stack.orbitdb,
+      libp2p: stack.libp2p
+    });
+  }
 
   return (
     <StorachaFab
-      orbitdb={orbitdb}
-      libp2p={libp2p}
+      ref={fabRef}
       preferWorkerMode={true}
       onAuthenticate={handleAuthenticate}
     />
@@ -74,11 +87,33 @@ function App() {
 }
 ```
 
+## Live Service Objects
+
+Do not pass live objects such as `libp2p`, `orbitdb`, or `database` as normal React props.
+
+React wrapper refs expose these methods for service updates:
+
+```jsx
+fabRef.current?.setLibp2p(libp2p);
+fabRef.current?.setOrbitdb(orbitdb);
+fabRef.current?.setDatabase(database);
+fabRef.current?.updateServices({ libp2p, orbitdb, database });
+```
+
+Use regular React props only for plain values and callbacks like:
+- `isInitialized`
+- `entryCount`
+- `databaseName`
+- `onAuthenticate`
+- `onBackup`
+- `onRestore`
+- `preferWorkerMode`
+
 ## Available Components
 
 ### `StorachaFab`
 
-Floating action button with the full Storacha integration panel. Same props as the Svelte version.
+Floating action button with the full Storacha integration panel.
 
 ### `StorachaIntegration`
 
@@ -90,6 +125,8 @@ import { StorachaIntegration } from 'p2p-passkeys/react';
 
 ## How Props Update
 
-Props are passed through to the Svelte component reactively. When React state changes trigger a re-render, the wrapper calls `bridge.update()` which mutates the `$state` proxy, triggering Svelte's reactivity system.
+Plain props are passed through to the Svelte component reactively. When React state changes trigger a re-render, the wrapper calls `bridge.update()` which mutates the `$state` proxy, triggering Svelte's reactivity system.
+
+Live service objects are updated through the wrapper ref to avoid React dev-mode inspection of complex proxy/service objects.
 
 Since the Svelte components ship uncompiled, the consumer's bundler (with `@sveltejs/vite-plugin-svelte`) compiles both the `.svelte` components and the `.svelte.js` bridge file.
