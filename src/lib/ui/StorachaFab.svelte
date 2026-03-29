@@ -12,6 +12,7 @@
     onAuthenticate = () => {},
     libp2p = null,
     preferWorkerMode = false,
+    signingPreference = null,
   } = $props();
 
   let showPanel = $state(false);
@@ -24,8 +25,8 @@
   onclick={() => (showPanel = !showPanel)}
   onmouseenter={() => (isHovered = true)}
   onmouseleave={() => (isHovered = false)}
-  title={showPanel ? 'Hide Storacha Backup' : 'Open Storacha - Decentralized Storage'}
-  aria-label={showPanel ? 'Hide Storacha backup integration' : 'Open Storacha backup integration'}
+  title={showPanel ? 'Hide P2Pass panel' : 'Open P2Pass — passkey & UCAN, peer-to-peer'}
+  aria-label={showPanel ? 'Hide P2Pass panel' : 'Open P2Pass panel'}
   style="
 		position: fixed;
 		right: 1.5rem;
@@ -128,5 +129,6 @@
     }}
     {libp2p}
     {preferWorkerMode}
+    {signingPreference}
   />
 </div>

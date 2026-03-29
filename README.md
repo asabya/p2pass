@@ -26,13 +26,13 @@ npm install p2p-passkeys
   import { StorachaFab } from 'p2p-passkeys';
 </script>
 
-<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
+<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} />
 ```
 
 The component handles everything internally:
 
 1. Click the floating Storacha button (bottom-right)
-2. "Authenticate with Passkey" → biometric prompt → DID created
+2. Choose a **signing mode** (hardware Ed25519 with P-256 fallback, hardware P-256 only, or worker Ed25519), then **Authenticate with Passkey** → biometric prompt → DID created
 3. Two tabs appear: **P2P Passkeys** (device linking) and **Storacha** (backup/restore); P2P Passkeys is the default
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
 5. P2P Passkeys tab shows connection status, peer info, and linked devices
@@ -142,24 +142,25 @@ This means the same passkey on any device (via passkey sync) produces the same P
 | Hardware P-256   | High     | TPM/Secure Enclave                  | Per signature |
 | Worker Ed25519   | Medium   | Web worker + encrypted localStorage | On init only  |
 
-Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-device). The component auto-detects the best available mode when `preferWorkerMode` is not set.
+**Worker Ed25519** matches typical OrbitDB multi-device flows (signing key in a worker). **Hardware** modes keep private keys in the authenticator; hardware Ed25519 lists Ed25519 first and may obtain **P-256** if the device does not support hardware Ed25519. Pick the mode in the panel before authenticating, or set `signingPreference="worker"` / `preferWorkerMode` on the component.
 
 ## Props
 
 When using `StorachaFab` or `StorachaIntegration` directly:
 
-| Prop               | Type     | Default         | Description                                      |
-| ------------------ | -------- | --------------- | ------------------------------------------------ |
-| `orbitdb`          | object   | `null`          | OrbitDB instance (for backup/restore)            |
-| `database`         | object   | `null`          | Database instance to backup                      |
-| `isInitialized`    | boolean  | `false`         | Whether OrbitDB is ready                         |
-| `entryCount`       | number   | `0`             | Database entry count                             |
-| `databaseName`     | string   | `'restored-db'` | Name for restored database                       |
-| `onRestore`        | function | `() => {}`      | Called when restore completes                    |
-| `onBackup`         | function | `() => {}`      | Called when backup completes                     |
-| `onAuthenticate`   | function | `() => {}`      | Called after passkey auth (receives signingMode) |
-| `libp2p`           | object   | `null`          | libp2p instance for P2P connectivity             |
-| `preferWorkerMode` | boolean  | `false`         | Skip hardware mode, use worker Ed25519           |
+| Prop                | Type     | Default         | Description                                                                              |
+| ------------------- | -------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `orbitdb`           | object   | `null`          | OrbitDB instance (for backup/restore)                                                    |
+| `database`          | object   | `null`          | Database instance to backup                                                              |
+| `isInitialized`     | boolean  | `false`         | Whether OrbitDB is ready                                                                 |
+| `entryCount`        | number   | `0`             | Database entry count                                                                     |
+| `databaseName`      | string   | `'restored-db'` | Name for restored database                                                               |
+| `onRestore`         | function | `() => {}`      | Called when restore completes                                                            |
+| `onBackup`          | function | `() => {}`      | Called when backup completes                                                             |
+| `onAuthenticate`    | function | `() => {}`      | Called after passkey auth (receives signingMode)                                         |
+| `libp2p`            | object   | `null`          | libp2p instance for P2P connectivity                                                     |
+| `signingPreference` | `string` | `null`          | `'hardware-ed25519'`, `'hardware-p256'`, or `'worker'` — overrides the in-panel selector |
+| `preferWorkerMode`  | boolean  | `false`         | Deprecated; same as `signingPreference="worker"`                                         |
 
 ## Components
 
@@ -238,6 +239,12 @@ PW_REUSE_SERVER=1 npm run test:e2e
 ```
 
 Failed runs write HTML reports, screenshots, traces, and video under `test-results/` (see Playwright output for paths).
+
+**Signing mode in e2e:** set `E2E_SIGNING_MODE` to `worker`, `hardware-ed25519`, or `hardware-p256` (default in helpers is `worker`). CI runs the link-devices spec **three times** (matrix), one per mode.
+
+```bash
+E2E_SIGNING_MODE=hardware-ed25519 npm run test:e2e
+```
 
 ## Dependencies
 

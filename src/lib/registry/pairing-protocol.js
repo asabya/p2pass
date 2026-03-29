@@ -424,19 +424,103 @@ export async function unregisterLinkDeviceHandler(libp2p) {
 }
 
 /**
- * Detect a human-readable device label from the browser user-agent.
+ * Best-effort OS name when Client Hints are missing (uses UA + navigator.platform).
+ * @param {string} ua
+ * @param {string} navPlatform
+ * @returns {string}
+ */
+function guessOsName(ua, navPlatform) {
+  if (/iPhone/.test(ua)) return 'iOS';
+  if (/iPad/.test(ua)) return 'iPadOS';
+  if (/Android/.test(ua)) return 'Android';
+  if (/Mac/.test(ua) || /^Mac/i.test(navPlatform)) return 'macOS';
+  if (/Windows/.test(ua) || /^Win/i.test(navPlatform)) return 'Windows';
+  if (/CrOS/.test(ua)) return 'Chrome OS';
+  if (/Linux/.test(ua) || /Linux/i.test(navPlatform)) return 'Linux';
+  return '';
+}
+
+/**
+ * Browser name + major (or Safari minor) version from the User-Agent string.
+ * Order matters (e.g. Edge and Opera both contain "Chrome").
+ * @param {string} ua
+ * @returns {string}
+ */
+function parseBrowserLabelFromUserAgent(ua) {
+  if (!ua) return '';
+  let m = ua.match(/\sEdgiOS\/(\d+)/i);
+  if (m) return `Edge ${m[1]}`;
+  m = ua.match(/\sEdgA\/(\d+)/i);
+  if (m) return `Edge ${m[1]}`;
+  m = ua.match(/\sEdg\/(\d+)/);
+  if (m) return `Edge ${m[1]}`;
+  m = ua.match(/\sEdge\/(\d+)/);
+  if (m) return `Edge ${m[1]}`;
+  m = ua.match(/\sOPR\/(\d+)/);
+  if (m) return `Opera ${m[1]}`;
+  m = ua.match(/\sSamsungBrowser\/(\d+)/);
+  if (m) return `Samsung Internet ${m[1]}`;
+  m = ua.match(/\sCriOS\/(\d+)/);
+  if (m) return `Chrome ${m[1]}`;
+  m = ua.match(/\sFxiOS\/(\d+)/);
+  if (m) return `Firefox ${m[1]}`;
+  m = ua.match(/\sBrave\/(\d+)/i);
+  if (m) return `Brave ${m[1]}`;
+  m = ua.match(/\sChrome\/(\d+)/);
+  if (m) return `Chrome ${m[1]}`;
+  m = ua.match(/\sFirefox\/(\d+)/);
+  if (m) return `Firefox ${m[1]}`;
+  if (/Safari\//.test(ua) && !/Chrome|Chromium|Edg|OPR|Brave/i.test(ua)) {
+    m = ua.match(/Version\/(\d+(?:\.\d+)?)/);
+    if (m) return `Safari ${m[1]}`;
+    return 'Safari';
+  }
+  return '';
+}
+
+/**
+ * Human-readable device label from navigator (Client Hints OS + legacy platform), UA OS fallback,
+ * and browser name/version from {@link navigator.userAgent}.
  * @returns {string}
  */
 export function detectDeviceLabel() {
   if (typeof navigator === 'undefined') return 'Unknown Device';
-  const ua = navigator.userAgent;
-  if (/iPhone/.test(ua)) return 'iPhone';
-  if (/iPad/.test(ua)) return 'iPad';
-  if (/Android/.test(ua)) return 'Android';
-  if (/Mac/.test(ua)) return 'Mac';
-  if (/Windows/.test(ua)) return 'Windows PC';
-  if (/Linux/.test(ua)) return 'Linux';
-  return 'Unknown Device';
+
+  const osFromHints =
+    typeof navigator.userAgentData?.platform === 'string'
+      ? navigator.userAgentData.platform.trim()
+      : '';
+  const platRaw = typeof navigator.platform === 'string' ? navigator.platform.trim() : '';
+  const navPlatform = platRaw && platRaw !== 'Unknown' ? platRaw : '';
+  const ua = navigator.userAgent || '';
+
+  /** @type {string} */
+  let base;
+  if (osFromHints && navPlatform) {
+    const ol = osFromHints.toLowerCase();
+    const pl = navPlatform.toLowerCase();
+    if (pl.includes(ol) || ol.includes(pl)) base = osFromHints;
+    else base = `${osFromHints} · ${navPlatform}`;
+  } else if (osFromHints) {
+    base = osFromHints;
+  } else if (navPlatform) {
+    const osGuess = guessOsName(ua, navPlatform);
+    if (osGuess && osGuess.toLowerCase() !== navPlatform.toLowerCase()) {
+      base = `${osGuess} · ${navPlatform}`;
+    } else {
+      base = navPlatform;
+    }
+  } else if (/iPhone/.test(ua)) base = 'iPhone';
+  else if (/iPad/.test(ua)) base = 'iPad';
+  else if (/Android/.test(ua)) base = 'Android';
+  else if (/Mac/.test(ua)) base = 'Mac';
+  else if (/Windows/.test(ua)) base = 'Windows';
+  else if (/Linux/.test(ua)) base = 'Linux';
+  else base = 'Unknown Device';
+
+  const browser = parseBrowserLabelFromUserAgent(ua);
+  if (browser) return `${base} · ${browser}`;
+  return base;
 }
 
 /**

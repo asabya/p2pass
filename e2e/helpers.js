@@ -1,13 +1,42 @@
 import { expect } from '@playwright/test';
+import { SIGNING_PREFERENCE_STORAGE_KEY } from '../src/lib/identity/signing-preference.js';
 
 /**
- * Attach a virtual authenticator on the app origin. Must run after navigation to a
- * valid WebAuthn context (e.g. http://localhost), not on about:blank.
+ * @param {{ signingPreference?: string }} [options]
+ * @returns {'hardware-ed25519' | 'hardware-p256' | 'worker'}
+ */
+function resolveE2eSigningPreference(options = {}) {
+  const raw =
+    options.signingPreference ||
+    (typeof process !== 'undefined' && process.env.E2E_SIGNING_MODE) ||
+    'worker';
+  if (raw === 'hardware-ed25519' || raw === 'hardware-p256' || raw === 'worker') {
+    return raw;
+  }
+  return 'worker';
+}
+
+/**
+ * Attach a virtual authenticator on the app origin. Navigates to `/` after seeding signing preference.
  *
  * @param {import('@playwright/test').BrowserContext} context
  * @param {import('@playwright/test').Page} page
+ * @param {{ signingPreference?: 'hardware-ed25519' | 'hardware-p256' | 'worker' }} [options]
  */
-export async function addVirtualWebAuthn(context, page) {
+export async function addVirtualWebAuthn(context, page, options = {}) {
+  const pref = resolveE2eSigningPreference(options);
+
+  await page.addInitScript(
+    ([key, value]) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        /* ignore */
+      }
+    },
+    [SIGNING_PREFERENCE_STORAGE_KEY, pref]
+  );
+
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const client = await context.newCDPSession(page);
   await client.send('WebAuthn.enable');
@@ -23,22 +52,36 @@ export async function addVirtualWebAuthn(context, page) {
 }
 
 /**
- * Open Storacha, create passkey, open P2P tab, wait until linking is ready.
- * @param {import('@playwright/test').Page} page
+ * Test id for the signing-mode radio matching {@link resolveE2eSigningPreference}.
+ * @param {'hardware-ed25519' | 'hardware-p256' | 'worker'} mode
  */
-export async function createPasskeyAndOpenP2PTab(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+function signingPreferenceRadioTestId(mode) {
+  if (mode === 'hardware-ed25519') return 'storacha-signing-pref-hardware-ed25519';
+  if (mode === 'hardware-p256') return 'storacha-signing-pref-hardware-p256';
+  return 'storacha-signing-pref-worker';
+}
+
+/**
+ * Open panel, choose signing mode, authenticate. Call after {@link addVirtualWebAuthn}.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {{ signingPreference?: string }} [options] - defaults from `E2E_SIGNING_MODE` / `worker`
+ */
+export async function createPasskeyAndOpenP2PTab(page, options = {}) {
+  const mode = resolveE2eSigningPreference(options);
+
   await expect(page).toHaveURL(/localhost/);
   await page.getByTestId('storacha-fab-toggle').click();
   await expect(page.getByTestId('storacha-panel')).toBeVisible();
 
+  await expect(page.getByTestId('storacha-signing-preference-group')).toBeVisible();
+  await page.getByTestId(signingPreferenceRadioTestId(mode)).click();
+  await expect(page.getByTestId(signingPreferenceRadioTestId(mode))).toBeChecked();
+
   await page.getByTestId('storacha-passkey-primary').click();
 
-  await expect(page.getByText(/Worker Ed25519|Hardware Ed25519|Hardware P-256/)).toBeVisible({
-    timeout: 120_000,
-  });
-
-  await page.getByTestId('storacha-tab-passkeys').first().click();
+  // Must not match login copy only — wait for post-auth shell (Your DID / badges).
+  await expect(page.getByTestId('storacha-post-auth')).toBeVisible({ timeout: 120_000 });
 
   await expect(page.getByTestId('storacha-copy-peer-info').first()).toBeVisible({
     timeout: 120_000,

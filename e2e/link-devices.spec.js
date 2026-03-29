@@ -5,7 +5,11 @@ import {
   getLinkPayloadJsonForE2e,
 } from './helpers.js';
 
-test.describe('P2P link devices (local relay)', () => {
+const signingMode = /** @type {'hardware-ed25519' | 'hardware-p256' | 'worker'} */ (
+  process.env.E2E_SIGNING_MODE || 'worker'
+);
+
+test.describe(`P2P link devices (local relay) — ${signingMode}`, () => {
   test('Alice and Bob passkeys, paste peer info JSON (e2e), approve, both see linked devices', async ({
     browser,
   }, testInfo) => {
@@ -25,11 +29,11 @@ test.describe('P2P link devices (local relay)', () => {
     const alicePage = await alice.newPage();
     const bobPage = await bob.newPage();
 
-    await addVirtualWebAuthn(alice, alicePage);
-    await addVirtualWebAuthn(bob, bobPage);
+    await addVirtualWebAuthn(alice, alicePage, { signingPreference: signingMode });
+    await addVirtualWebAuthn(bob, bobPage, { signingPreference: signingMode });
 
-    await createPasskeyAndOpenP2PTab(alicePage);
-    await createPasskeyAndOpenP2PTab(bobPage);
+    await createPasskeyAndOpenP2PTab(alicePage, { signingPreference: signingMode });
+    await createPasskeyAndOpenP2PTab(bobPage, { signingPreference: signingMode });
 
     // Isolated contexts rarely have a working peer-id-only route; use full payload like manual JSON paste.
     const alicePayload = await getLinkPayloadJsonForE2e(alicePage);

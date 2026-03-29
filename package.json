@@ -96,6 +96,6 @@
     "@ucanto/validator": "npm:@le-space/ucanto-validator@^10.1.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }

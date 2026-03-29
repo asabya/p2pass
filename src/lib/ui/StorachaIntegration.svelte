@@ -1,5 +1,9 @@
 <script>
   import { onMount } from 'svelte';
+  import {
+    readSigningPreferenceFromStorage,
+    writeSigningPreferenceToStorage,
+  } from '../identity/signing-preference.js';
   import { Upload, LogOut, Loader2, AlertCircle, CheckCircle, Download } from 'lucide-svelte';
   import { listSpaces, getSpaceUsage } from './storacha-backup.js';
   import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
@@ -50,8 +54,38 @@
     /** Parent (e.g. StorachaFab) must show the floating panel — otherwise pairing UI is `display:none`. */
     onPairingPromptOpen = () => {},
     libp2p = null,
+    /** @deprecated Use {@link signingPreference} `'worker'` instead */
     preferWorkerMode = false,
+    /** When set, overrides the in-panel signing mode selector (e.g. programmatic / tests). */
+    signingPreference: signingPreferenceOverride = null,
   } = $props();
+
+  /** User-chosen strategy before passkey create/auth; persisted in localStorage. */
+  let selectedSigningPreference = $state(
+    /** @type {'hardware-ed25519' | 'hardware-p256' | 'worker'} */ ('hardware-ed25519')
+  );
+
+  onMount(() => {
+    const stored = readSigningPreferenceFromStorage();
+    if (stored) selectedSigningPreference = stored;
+  });
+
+  function setSigningPreference(/** @type {'hardware-ed25519' | 'hardware-p256' | 'worker'} */ p) {
+    selectedSigningPreference = p;
+    writeSigningPreferenceToStorage(p);
+  }
+
+  /** Emoji for linked-device row; works with {@link detectDeviceLabel} strings (OS · platform, etc.). */
+  function linkedDeviceIcon(/** @type {string | undefined} */ label) {
+    const s = (label || '').toLowerCase();
+    if (s.includes('iphone')) return '\uD83D\uDCF1';
+    if (s.includes('ipados') || s.includes('ipad')) return '\uD83D\uDCF1';
+    if (s.includes('android')) return '\uD83D\uDCF1';
+    if (s.includes('mac') || s.includes('ios')) return '\uD83D\uDCBB';
+    if (s.includes('win')) return '\uD83D\uDDA5\uFE0F';
+    if (s.includes('linux')) return '\uD83D\uDC27';
+    return '\uD83D\uDCF1';
+  }
 
   // Component state
   let showStoracha = $state(true);
@@ -91,7 +125,7 @@
   const OWNER_DID_KEY = 'p2p_passkeys_owner_did';
 
   // Tab state
-  let activeTab = $state('storacha'); // 'storacha' | 'passkeys'
+  let activeTab = $state('passkeys'); // 'storacha' | 'passkeys' — P2P Passkeys first (primary)
 
   // P2P Passkeys state
   let devices = $state([]);
@@ -272,7 +306,10 @@
   async function handleAuthenticate() {
     isAuthenticating = true;
     try {
-      signingMode = await identityService.initialize(undefined, { preferWorkerMode });
+      signingMode = await identityService.initialize(undefined, {
+        preferWorkerMode,
+        signingPreference: signingPreferenceOverride ?? selectedSigningPreference,
+      });
       showMessage(`Authenticated! Mode: ${signingMode.algorithm} (${signingMode.mode})`);
 
       // Notify parent that authentication succeeded — await so P2P stack can init
@@ -1131,13 +1168,7 @@
               : '#E91315'};"
           >
             <div style="font-size: 1rem; flex-shrink: 0;">
-              {device.device_label === 'Mac'
-                ? '\uD83D\uDCBB'
-                : device.device_label === 'Windows PC'
-                  ? '\uD83D\uDDA5\uFE0F'
-                  : device.device_label === 'Linux'
-                    ? '\uD83D\uDC27'
-                    : '\uD83D\uDCF1'}
+              {linkedDeviceIcon(device.device_label)}
             </div>
             <div style="flex: 1; min-width: 0;">
               <div
@@ -1214,10 +1245,12 @@
         <h3
           style="font-size: 1.125rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
         >
-          Storacha
+          P2Pass
         </h3>
-        <p style="font-size: 0.75rem; color: #555; font-family: 'DM Mono', monospace;">
-          Keep it Spicy
+        <p
+          style="font-size: 0.6875rem; color: #555; font-family: 'DM Mono', monospace; line-height: 1.35; max-width: 18rem;"
+        >
+          peer-to-peer passkeys and ucans
         </p>
       </div>
     </div>
@@ -1227,7 +1260,7 @@
       onclick={() => (showStoracha = !showStoracha)}
       style="border-radius: 0.5rem; padding: 0.5rem; color: #E91315; transition: color 150ms, background-color 150ms; border: none; background: transparent; cursor: pointer;"
       title={showStoracha ? 'Collapse' : 'Expand'}
-      aria-label={showStoracha ? 'Collapse Storacha panel' : 'Expand Storacha panel'}
+      aria-label={showStoracha ? 'Collapse P2Pass panel' : 'Expand P2Pass panel'}
     >
       <svg
         style="height: 1rem; width: 1rem; transition: transform 200ms; transform: {showStoracha
@@ -1408,8 +1441,8 @@
         <div
           style="text-align: center; font-size: 0.875rem; color: #374151; font-family: 'DM Sans', sans-serif;"
         >
-          Connect to <span style="font-weight: 700; color: #E91315;">Storacha</span> to backup your data
-          to decentralized storage!
+          Create, use and replicate your passkeys and UCANs between your devices - recover them from
+          decentralised Filecoin/Storacha storage
         </div>
 
         {#if !signingMode}
@@ -1420,6 +1453,69 @@
             >
               {passkeyStepHint}
             </div>
+
+            <fieldset
+              disabled={isAuthenticating || signingPreferenceOverride != null}
+              data-testid="storacha-signing-preference-group"
+              style="margin: 0; width: 100%; max-width: 22rem; border-radius: 0.5rem; border: 1px solid rgba(233, 19, 21, 0.25); padding: 0.625rem 0.75rem; background: rgba(255, 255, 255, 0.6); box-sizing: border-box;"
+            >
+              <legend
+                style="font-size: 0.7rem; font-weight: 600; color: #374151; font-family: 'Epilogue', sans-serif; padding: 0 0.25rem;"
+              >
+                Signing mode
+              </legend>
+              <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                <label
+                  style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.68rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.35;"
+                >
+                  <input
+                    type="radio"
+                    name="storacha-signing-pref"
+                    data-testid="storacha-signing-pref-hardware-ed25519"
+                    checked={selectedSigningPreference === 'hardware-ed25519'}
+                    onchange={() => setSigningPreference('hardware-ed25519')}
+                    style="margin-top: 0.15rem; accent-color: #E91315;"
+                  />
+                  <span
+                    ><strong>Hardware Ed25519</strong> (default) — passkey signatures in the secure
+                    element; Ed25519 preferred, <strong>P-256 fallback</strong> if the authenticator does
+                    not support Ed25519.</span
+                  >
+                </label>
+                <label
+                  style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.68rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.35;"
+                >
+                  <input
+                    type="radio"
+                    name="storacha-signing-pref"
+                    data-testid="storacha-signing-pref-hardware-p256"
+                    checked={selectedSigningPreference === 'hardware-p256'}
+                    onchange={() => setSigningPreference('hardware-p256')}
+                    style="margin-top: 0.15rem; accent-color: #E91315;"
+                  />
+                  <span
+                    ><strong>Hardware P-256</strong> — WebAuthn ES256 only (no Ed25519 on this passkey).</span
+                  >
+                </label>
+                <label
+                  style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.68rem; color: #374151; font-family: 'DM Sans', sans-serif; line-height: 1.35;"
+                >
+                  <input
+                    type="radio"
+                    name="storacha-signing-pref"
+                    data-testid="storacha-signing-pref-worker"
+                    checked={selectedSigningPreference === 'worker'}
+                    onchange={() => setSigningPreference('worker')}
+                    style="margin-top: 0.15rem; accent-color: #E91315;"
+                  />
+                  <span
+                    ><strong>Worker Ed25519</strong> — signing key in a web worker; WebAuthn used for
+                    PRF / user verification (recommended for OrbitDB multi-device).</span
+                  >
+                </label>
+              </div>
+            </fieldset>
+
             <button
               data-testid="storacha-passkey-primary"
               class="storacha-btn-primary"
@@ -1483,7 +1579,10 @@
           </div>
         {:else}
           <!-- Step 2: Authenticated — show DID info + delegation import -->
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div
+            data-testid="storacha-post-auth"
+            style="display: flex; flex-direction: column; gap: 0.75rem;"
+          >
             <!-- Signing Mode Badge -->
             <div
               style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap;"
@@ -1740,23 +1839,10 @@
         {/if}
 
         {#if signingMode}
-          <!-- Tab Navigation (visible after authentication) -->
+          <!-- Tab Navigation (visible after authentication) — P2P Passkeys first -->
           <div
             style="border-radius: 0.5rem; background: rgba(233, 19, 21, 0.06); padding: 0.25rem; display: flex; gap: 0.25rem;"
           >
-            <button
-              onclick={() => handleTabSwitch('storacha')}
-              style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
-              'storacha'
-                ? 'linear-gradient(135deg, #E91315, #FFC83F)'
-                : 'transparent'}; color: {activeTab === 'storacha'
-                ? '#fff'
-                : '#6B7280'}; box-shadow: {activeTab === 'storacha'
-                ? '0 2px 8px rgba(233, 19, 21, 0.3)'
-                : 'none'};"
-            >
-              Storacha
-            </button>
             <button
               data-testid="storacha-tab-passkeys"
               onclick={() => handleTabSwitch('passkeys')}
@@ -1770,6 +1856,20 @@
                 : 'none'};"
             >
               P2P Passkeys
+            </button>
+            <button
+              data-testid="storacha-tab-storacha"
+              onclick={() => handleTabSwitch('storacha')}
+              style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
+              'storacha'
+                ? 'linear-gradient(135deg, #E91315, #FFC83F)'
+                : 'transparent'}; color: {activeTab === 'storacha'
+                ? '#fff'
+                : '#6B7280'}; box-shadow: {activeTab === 'storacha'
+                ? '0 2px 8px rgba(233, 19, 21, 0.3)'
+                : 'none'};"
+            >
+              Storacha
             </button>
           </div>
 
@@ -1885,23 +1985,10 @@
           </button>
         </div>
 
-        <!-- Tab Navigation -->
+        <!-- Tab Navigation — P2P Passkeys first -->
         <div
           style="border-radius: 0.5rem; background: rgba(233, 19, 21, 0.06); padding: 0.25rem; display: flex; gap: 0.25rem;"
         >
-          <button
-            onclick={() => handleTabSwitch('storacha')}
-            style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
-            'storacha'
-              ? 'linear-gradient(135deg, #E91315, #FFC83F)'
-              : 'transparent'}; color: {activeTab === 'storacha'
-              ? '#fff'
-              : '#6B7280'}; box-shadow: {activeTab === 'storacha'
-              ? '0 2px 8px rgba(233, 19, 21, 0.3)'
-              : 'none'};"
-          >
-            Storacha
-          </button>
           <button
             data-testid="storacha-tab-passkeys"
             onclick={() => handleTabSwitch('passkeys')}
@@ -1915,6 +2002,20 @@
               : 'none'};"
           >
             P2P Passkeys
+          </button>
+          <button
+            data-testid="storacha-tab-storacha"
+            onclick={() => handleTabSwitch('storacha')}
+            style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
+            'storacha'
+              ? 'linear-gradient(135deg, #E91315, #FFC83F)'
+              : 'transparent'}; color: {activeTab === 'storacha'
+              ? '#fff'
+              : '#6B7280'}; box-shadow: {activeTab === 'storacha'
+              ? '0 2px 8px rgba(233, 19, 21, 0.3)'
+              : 'none'};"
+          >
+            Storacha
           </button>
         </div>
 

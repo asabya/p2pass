@@ -8,6 +8,14 @@ export { default as StorachaFab } from './ui/StorachaFab.svelte';
 // Identity
 export { IdentityService, hasLocalPasskeyHint } from './identity/identity-service.js';
 export { detectSigningMode, getStoredSigningMode } from './identity/mode-detector.js';
+export {
+  SIGNING_PREFERENCE_STORAGE_KEY,
+  SIGNING_PREFERENCE_LIST,
+  isSigningPreference,
+  readSigningPreferenceFromStorage,
+  writeSigningPreferenceToStorage,
+  resolveSigningPreference,
+} from './identity/signing-preference.js';
 
 // UCAN / Storacha auth
 export {
@@ -48,8 +56,8 @@ export {
   detectDeviceLabel,
   sortPairingMultiaddrs,
   filterPairingDialMultiaddrs,
-	pairingFlow,
-	PAIRING_HINT_ADDR_CAP,
+  pairingFlow,
+  PAIRING_HINT_ADDR_CAP,
 } from './registry/pairing-protocol.js';
 
 // P2P stack setup

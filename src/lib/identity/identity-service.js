@@ -32,6 +32,8 @@ import {
   recoverPrfSeed,
 } from '../recovery/ipns-key.js';
 
+import { resolveSigningPreference } from './signing-preference.js';
+
 const ARCHIVE_CACHE_KEY = 'p2p_passkeys_worker_archive';
 
 /**
@@ -116,17 +118,26 @@ export class IdentityService {
    * If no credentials, creates new passkey.
    *
    * @param {'platform'|'cross-platform'} [authenticatorType]
+   * @param {{ preferWorkerMode?: boolean, signingPreference?: import('./signing-preference.js').SigningPreference }} [options]
    * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
    */
-  async initialize(authenticatorType, { preferWorkerMode = false } = {}) {
-    console.log('[identity] Initializing...', preferWorkerMode ? '(worker mode preferred)' : '');
+  async initialize(authenticatorType, options = {}) {
+    const { preferWorkerMode = false, signingPreference = null } = options;
+    const pref = resolveSigningPreference({ preferWorkerMode, signingPreference });
+    const preferWorker = pref === 'worker';
+    const forceP256Hardware = pref === 'hardware-p256';
 
-    // Try hardware mode first (unless worker mode is preferred)
-    if (!preferWorkerMode) {
+    console.log(
+      '[identity] Initializing...',
+      preferWorker ? '(worker)' : `(hardware, forceP256=${forceP256Hardware})`
+    );
+
+    // Try hardware mode first (unless worker mode is selected)
+    if (!preferWorker) {
       try {
         const signer = await this.#hardwareService.initialize({
           authenticatorType,
-          preferEd25519: true,
+          forceP256: forceP256Hardware,
         });
 
         if (signer) {
@@ -158,9 +169,10 @@ export class IdentityService {
   /**
    * Force create a new identity (discards existing).
    * @param {'platform'|'cross-platform'} [authenticatorType]
+   * @param {{ preferWorkerMode?: boolean, signingPreference?: import('./signing-preference.js').SigningPreference }} [options]
    * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
    */
-  async createNewIdentity(authenticatorType) {
+  async createNewIdentity(authenticatorType, options = {}) {
     this.#hardwareService.clear();
     this.#mode = null;
     this.#did = null;
@@ -168,7 +180,7 @@ export class IdentityService {
     this.#archive = null;
     this.#pendingCredentials = null;
 
-    return this.initialize(authenticatorType);
+    return this.initialize(authenticatorType, options);
   }
 
   /**
