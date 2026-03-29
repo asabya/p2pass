@@ -20,7 +20,6 @@ import {
 
 import {
   storeKeypairEntry,
-  getKeypairEntry,
   storeArchiveEntry,
   getArchiveEntry,
   listKeypairs,
@@ -35,6 +34,38 @@ import {
 import { resolveSigningPreference } from './signing-preference.js';
 
 const ARCHIVE_CACHE_KEY = 'p2p_passkeys_worker_archive';
+
+/** WebAuthn user.id must be at most 64 bytes (UTF-8). */
+const WEBAUTHN_USER_ID_MAX_BYTES = 64;
+
+/**
+ * Build {@link https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialuserentity PublicKeyCredentialUserEntity}.
+ * Empty label keeps prior defaults (random opaque user.id).
+ *
+ * @param {string} label
+ * @returns {Promise<{ id: Uint8Array, name: string, displayName: string }>}
+ */
+async function publicKeyCredentialUserFromLabel(label) {
+  const trimmed = (typeof label === 'string' ? label : '').trim();
+  if (!trimmed) {
+    return {
+      id: crypto.getRandomValues(new Uint8Array(16)),
+      name: 'p2p-user',
+      displayName: 'P2P User',
+    };
+  }
+  const encoder = new TextEncoder();
+  let idBytes = encoder.encode(trimmed);
+  if (idBytes.length > WEBAUTHN_USER_ID_MAX_BYTES) {
+    const digest = await crypto.subtle.digest('SHA-256', idBytes);
+    idBytes = new Uint8Array(digest);
+  }
+  return {
+    id: idBytes,
+    name: trimmed,
+    displayName: trimmed,
+  };
+}
 
 /**
  * Best-effort: this origin likely already has passkey / identity material (no WebAuthn prompt).
@@ -118,11 +149,11 @@ export class IdentityService {
    * If no credentials, creates new passkey.
    *
    * @param {'platform'|'cross-platform'} [authenticatorType]
-   * @param {{ preferWorkerMode?: boolean, signingPreference?: import('./signing-preference.js').SigningPreference }} [options]
+   * @param {{ preferWorkerMode?: boolean, signingPreference?: import('./signing-preference.js').SigningPreference, webauthnUserLabel?: string }} [options]
    * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
    */
   async initialize(authenticatorType, options = {}) {
-    const { preferWorkerMode = false, signingPreference = null } = options;
+    const { preferWorkerMode = false, signingPreference = null, webauthnUserLabel = '' } = options;
     const pref = resolveSigningPreference({ preferWorkerMode, signingPreference });
     const preferWorker = pref === 'worker';
     const forceP256Hardware = pref === 'hardware-p256';
@@ -135,10 +166,16 @@ export class IdentityService {
     // Try hardware mode first (unless worker mode is selected)
     if (!preferWorker) {
       try {
-        const signer = await this.#hardwareService.initialize({
+        const trimmedLabel = webauthnUserLabel.trim();
+        const hwOpts = {
           authenticatorType,
           forceP256: forceP256Hardware,
-        });
+        };
+        if (trimmedLabel) {
+          hwOpts.userId = trimmedLabel;
+          hwOpts.displayName = trimmedLabel;
+        }
+        const signer = await this.#hardwareService.initialize(hwOpts);
 
         if (signer) {
           this.#mode = 'hardware';
@@ -161,7 +198,7 @@ export class IdentityService {
     }
 
     // No existing identity — create new worker identity
-    await this.#createWorkerIdentity(authenticatorType);
+    await this.#createWorkerIdentity(authenticatorType, webauthnUserLabel);
     console.log(`[identity] Created new worker identity, DID: ${this.#did}`);
     return this.getSigningMode();
   }
@@ -169,7 +206,7 @@ export class IdentityService {
   /**
    * Force create a new identity (discards existing).
    * @param {'platform'|'cross-platform'} [authenticatorType]
-   * @param {{ preferWorkerMode?: boolean, signingPreference?: import('./signing-preference.js').SigningPreference }} [options]
+   * @param {{ preferWorkerMode?: boolean, signingPreference?: import('./signing-preference.js').SigningPreference, webauthnUserLabel?: string }} [options]
    * @returns {Promise<{ mode: string, did: string, algorithm: string }>}
    */
   async createNewIdentity(authenticatorType, options = {}) {
@@ -190,7 +227,7 @@ export class IdentityService {
    */
   async initializeFromRecovery() {
     console.log('[identity] Starting recovery via discoverable credential...');
-    const { prfSeed, rawCredentialId, credential } = await recoverPrfSeed();
+    const { prfSeed, rawCredentialId } = await recoverPrfSeed();
 
     this.#prfSeed = prfSeed;
     this.#ipnsKeyPair = await deriveIPNSKeyPair(prfSeed);
@@ -415,9 +452,9 @@ export class IdentityService {
   /**
    * Create a new worker-mode Ed25519 identity.
    */
-  async #createWorkerIdentity(authenticatorType) {
+  async #createWorkerIdentity(authenticatorType, webauthnUserLabel) {
     // Create WebAuthn credential with PRF
-    const credential = await this.#createWebAuthnCredential(authenticatorType);
+    const credential = await this.#createWebAuthnCredential(authenticatorType, webauthnUserLabel);
 
     // Extract PRF seed
     const { seed: prfSeed } = await extractPrfSeedFromCredential(credential);
@@ -468,9 +505,10 @@ export class IdentityService {
   /**
    * Create a WebAuthn credential with PRF extension.
    */
-  async #createWebAuthnCredential(authenticatorType) {
+  async #createWebAuthnCredential(authenticatorType, webauthnUserLabel) {
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const prfSalt = await computeDeterministicPrfSalt();
+    const userEntity = await publicKeyCredentialUserFromLabel(webauthnUserLabel);
 
     const createOptions = {
       publicKey: {
@@ -479,9 +517,9 @@ export class IdentityService {
           id: globalThis.location?.hostname || 'localhost',
         },
         user: {
-          id: crypto.getRandomValues(new Uint8Array(16)),
-          name: 'p2p-user',
-          displayName: 'P2P User',
+          id: userEntity.id,
+          name: userEntity.name,
+          displayName: userEntity.displayName,
         },
         challenge,
         pubKeyCredParams: [

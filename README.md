@@ -1,8 +1,8 @@
-# p2p-passkeys
+# P2Pass (`@le-space/p2pass`)
 
 [![Tests](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml/badge.svg)](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml)
 
-Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup.
+Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
 
 Drop in `<StorachaFab />` and get:
 
@@ -16,14 +16,14 @@ Drop in `<StorachaFab />` and get:
 ## Install
 
 ```bash
-npm install p2p-passkeys
+npm install @le-space/p2pass
 ```
 
 ## Usage
 
 ```svelte
 <script>
-  import { StorachaFab } from 'p2p-passkeys';
+  import { StorachaFab } from '@le-space/p2pass';
 </script>
 
 <StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} />
@@ -182,7 +182,7 @@ import {
   setupP2PStack,
   createLibp2pInstance,
   cleanupP2PStack,
-} from 'p2p-passkeys';
+} from '@le-space/p2pass';
 
 // Create identity (worker mode for P2P)
 const identity = new IdentityService();

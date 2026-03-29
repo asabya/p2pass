@@ -5,7 +5,7 @@
     writeSigningPreferenceToStorage,
   } from '../identity/signing-preference.js';
   import { Upload, LogOut, Loader2, AlertCircle, CheckCircle, Download } from 'lucide-svelte';
-  import { listSpaces, getSpaceUsage } from './storacha-backup.js';
+  import { getSpaceUsage } from './storacha-backup.js';
   import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
   import { IdentityService, hasLocalPasskeyHint } from '../identity/identity-service.js';
   import { getStoredSigningMode } from '../identity/mode-detector.js';
@@ -28,7 +28,6 @@
     listDelegations,
     storeDelegationEntry,
   } from '../registry/device-registry.js';
-  import { deriveIPNSKeyPair } from '../recovery/ipns-key.js';
   import {
     createManifest,
     publishManifest,
@@ -36,7 +35,7 @@
     uploadArchiveToIPFS,
     fetchArchiveFromIPFS,
   } from '../recovery/manifest.js';
-  import { backupRegistryDb, restoreRegistryDb } from '../backup/registry-backup.js';
+  import { backupRegistryDb } from '../backup/registry-backup.js';
   import { MultiDeviceManager } from '../registry/manager.js';
   import { detectDeviceLabel, pairingFlow } from '../registry/pairing-protocol.js';
   import { loadWebAuthnCredentialSafe } from '@le-space/orbitdb-identity-provider-webauthn-did/standalone';
@@ -90,7 +89,6 @@
   // Component state
   let showStoracha = $state(true);
   let isLoading = $state(false);
-  let status = $state('');
   let error = $state(null);
   let success = $state(null);
 
@@ -116,7 +114,8 @@
   let signingMode = $state(null); // { mode, did, algorithm, secure }
   let delegationText = $state(''); // textarea for pasting delegation
   let isAuthenticating = $state(false);
-  let spaces = $state([]);
+  /** Shown when creating a new passkey; sent as WebAuthn user.id / name / displayName (worker path). */
+  let passkeyUserLabel = $state('');
   let spaceUsage = $state(null);
 
   // Registry DB state
@@ -299,16 +298,13 @@
     }, 5000);
   }
 
-  function clearForms() {
-    delegationText = '';
-  }
-
   async function handleAuthenticate() {
     isAuthenticating = true;
     try {
       signingMode = await identityService.initialize(undefined, {
         preferWorkerMode,
         signingPreference: signingPreferenceOverride ?? selectedSigningPreference,
+        ...(localPasskeyDetected ? {} : { webauthnUserLabel: passkeyUserLabel }),
       });
       showMessage(`Authenticated! Mode: ${signingMode.algorithm} (${signingMode.mode})`);
 
@@ -890,7 +886,6 @@
     isLoggedIn = false;
     client = null;
     currentSpace = null;
-    spaces = [];
     spaceUsage = null;
     signingMode = null;
     await clearStoredDelegation(registryDb);
@@ -912,21 +907,6 @@
     }
   }
 
-  async function loadSpaces() {
-    if (!client) return;
-    isLoading = true;
-    status = 'Loading spaces...';
-    try {
-      spaces = await listSpaces(client);
-      await loadSpaceUsage();
-    } catch (err) {
-      showMessage(`Failed to load spaces: ${err.message}`, 'error');
-    } finally {
-      isLoading = false;
-      status = '';
-    }
-  }
-
   async function handleBackup() {
     if (!bridge) {
       showMessage('Please log in first', 'error');
@@ -943,7 +923,6 @@
 
     isLoading = true;
     resetProgress();
-    status = 'Preparing backup...';
 
     try {
       // Backup user database if available
@@ -979,7 +958,6 @@
       showMessage(`Backup failed: ${err.message}`, 'error');
     } finally {
       isLoading = false;
-      status = '';
       resetProgress();
     }
   }
@@ -992,20 +970,16 @@
 
     isLoading = true;
     resetProgress();
-    status = 'Preparing restore...';
 
     try {
       // Close existing database if provided
       if (database) {
-        status = 'Closing existing database...';
         try {
           await database.close();
         } catch {
           // Continue even if close fails
         }
       }
-
-      status = 'Starting restore...';
 
       if (!bridge) {
         throw new Error('Bridge not initialized. Please connect to Storacha first.');
@@ -1028,7 +1002,6 @@
       showMessage(`Restore failed: ${err.message}`, 'error');
     } finally {
       isLoading = false;
-      status = '';
       resetProgress();
     }
   }
@@ -1158,7 +1131,7 @@
       </div>
     {:else}
       <div style="display: flex; flex-direction: column; gap: 0.375rem;">
-        {#each devices as device}
+        {#each devices as device, i (device.credential_id || device.ed25519_did || device.device_label || i)}
           <div
             data-testid="storacha-linked-device-row"
             data-device-label={device.device_label || ''}
@@ -1515,6 +1488,33 @@
                 </label>
               </div>
             </fieldset>
+
+            {#if !localPasskeyDetected}
+              <label
+                style="display: flex; width: 100%; max-width: 22rem; flex-direction: column; align-items: stretch; gap: 0.35rem; text-align: left; box-sizing: border-box;"
+              >
+                <span
+                  style="font-size: 0.7rem; font-weight: 600; color: #374151; font-family: 'Epilogue', sans-serif;"
+                >
+                  Passkey name (WebAuthn user ID)
+                </span>
+                <input
+                  type="text"
+                  data-testid="storacha-passkey-user-label"
+                  bind:value={passkeyUserLabel}
+                  disabled={isAuthenticating || signingPreferenceOverride != null}
+                  placeholder="e.g. Work laptop"
+                  autocomplete="username"
+                  style="width: 100%; box-sizing: border-box; border-radius: 0.375rem; border: 1px solid rgba(233, 19, 21, 0.25); padding: 0.5rem 0.625rem; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; color: #111827; background: rgba(255, 255, 255, 0.9);"
+                />
+                <span
+                  style="font-size: 0.65rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.35;"
+                >
+                  Optional. Used for user.id (and display name) when creating a new passkey. Leave blank for an
+                  anonymous default.
+                </span>
+              </label>
+            {/if}
 
             <button
               data-testid="storacha-passkey-primary"

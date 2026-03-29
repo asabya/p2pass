@@ -114,7 +114,7 @@ export async function copyPeerInfoFromClipboard(page) {
 /**
  * Full `{ peerId, multiaddrs }` JSON for reliable pairing in e2e. Peer-id-only paste fails when
  * two isolated browser contexts have not yet populated each other’s peer store (see example
- * `window.__p2pPasskeysE2E` in App.svelte).
+ * `window.__p2passE2E` in App.svelte).
  *
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<string>}
@@ -125,7 +125,7 @@ export async function getLinkPayloadJsonForE2e(page) {
     .poll(
       async () => {
         payload = await page.evaluate(() => {
-          const api = globalThis.__p2pPasskeysE2E;
+          const api = globalThis.__p2passE2E;
           if (!api?.getPeerInfo) return '';
           const info = api.getPeerInfo();
           if (!info?.peerId || !Array.isArray(info.multiaddrs) || info.multiaddrs.length === 0) {

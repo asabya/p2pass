@@ -2,7 +2,7 @@
  * MultiDeviceManager - Unified class for multi-device OrbitDB with WebAuthn
  *
  * Copied from orbitdb-identity-provider-webauthn-did/src/multi-device/manager.js
- * with imports adapted for the p2p-passkeys package.
+ * with imports adapted for the @le-space/p2pass package.
  */
 
 import {

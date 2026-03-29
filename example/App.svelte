@@ -6,7 +6,7 @@
     createLibp2pInstance,
     cleanupP2PStack,
     sortPairingMultiaddrs,
-  } from 'p2p-passkeys';
+  } from '@le-space/p2pass';
 
   let orbitdb = $state(null);
   let libp2p = $state(null);
@@ -24,10 +24,10 @@
   $effect(() => {
     if (typeof window === 'undefined') return;
     if (!libp2p) {
-      delete window.__p2pPasskeysE2E;
+      delete window.__p2passE2E;
       return;
     }
-    window.__p2pPasskeysE2E = {
+    window.__p2passE2E = {
       getPeerInfo() {
         const peerId = libp2p.peerId.toString();
         // Include loopback: e2e uses two browsers on one host; relay circuit is often /ip4/127.0.0.1/...
@@ -179,7 +179,7 @@
   <div
     style="padding: 0.75rem 1rem; border-bottom: 1px solid #27272a; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;"
   >
-    <span style="font-size: 0.8rem; color: #71717a;">p2p-passkeys / logs</span>
+    <span style="font-size: 0.8rem; color: #71717a;">P2Pass / logs</span>
     <button
       onclick={() => {
         logs = [];

@@ -21,7 +21,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      'p2p-passkeys': path.resolve(__dirname, '../dist'),
+      '@le-space/p2pass': path.resolve(__dirname, '../dist'),
     },
   },
   optimizeDeps: {

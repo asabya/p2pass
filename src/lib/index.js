@@ -1,4 +1,4 @@
-// p2p-passkeys — public API
+// @le-space/p2pass — public API
 export const VERSION = '0.1.0';
 
 // UI components
