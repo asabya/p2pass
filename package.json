@@ -89,6 +89,7 @@
     "w3name": "^1.1.3"
   },
   "overrides": {
+    "picomatch": "4.0.4",
     "@ucanto/interface": "npm:@le-space/ucanto-interface@^11.1.1",
     "@ucanto/core": "npm:@le-space/ucanto-core@^10.5.1",
     "@ucanto/principal": "npm:@le-space/ucanto-principal@^9.1.2",
