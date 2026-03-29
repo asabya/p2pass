@@ -1,5 +1,5 @@
 // @le-space/p2pass — public API
-export const VERSION = '0.1.0';
+export const VERSION = '0.3.0';
 
 // Explicit default bindings (not `export { default as X } from`) — avoids star-export / default resolution errors in Vite.
 import StorachaIntegration from './ui/StorachaIntegration.svelte';

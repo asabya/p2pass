@@ -4,6 +4,8 @@ export default defineConfig({
   testDir: 'e2e',
   timeout: 180_000,
   expect: { timeout: 30_000 },
+  /* CI must not silently pass with `test.only` left in specs */
+  forbidOnly: !!process.env.CI,
 
   projects: [
     {

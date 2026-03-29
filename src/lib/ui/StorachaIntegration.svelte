@@ -778,6 +778,15 @@
       const dbAddr = registryDb.address?.toString?.() || registryDb.address;
       if (dbAddr) await deviceManager.openExistingDb(dbAddr);
 
+      // Use the same KV instance as MultiDeviceManager (sync listeners + replication). A second
+      // `openDeviceRegistry(..., sameAddress)` in openExistingDb is a distinct replica; reading
+      // `registryDb` from initRegistryDb after reload could list fewer devices than the manager.
+      const managedDb = deviceManager.getRegistryDb();
+      if (managedDb) {
+        registryDb = managedDb;
+        await identityService.setRegistry(registryDb);
+      }
+
       devices = await deviceManager.listDevices();
       peerInfo = deviceManager.getPeerInfo();
       console.log('[ui] MultiDeviceManager initialized');
@@ -790,9 +799,13 @@
 
   async function handleTabSwitch(tab) {
     activeTab = tab;
-    if (tab === 'passkeys' && registryDb) {
+    if (tab === 'passkeys') {
       try {
-        devices = await listRegistryDevices(registryDb);
+        if (deviceManager) {
+          devices = await deviceManager.listDevices();
+        } else if (registryDb) {
+          devices = await listRegistryDevices(registryDb);
+        }
       } catch (err) {
         console.warn('[ui] Failed to load devices:', err.message);
       }
@@ -1225,6 +1238,91 @@
       </div>
     </div>
   {/if}
+{/snippet}
+
+{#snippet yourDidCard()}
+  <div
+    data-testid="storacha-your-did"
+    style="border-radius: 0.375rem; border: 1px solid rgba(233, 19, 21, 0.3); background: linear-gradient(to right, #ffffff, #EFE3F3); padding: 0.625rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
+  >
+    <div
+      style="font-size: 0.625rem; font-weight: 600; color: #6b7280; font-family: 'DM Sans', sans-serif; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"
+    >
+      Your DID
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <code
+        style="flex: 1; font-size: 0.75rem; color: #374151; font-family: 'DM Mono', monospace; word-break: break-all; line-height: 1.4;"
+      >
+        {signingMode?.did
+          ? signingMode.did.length > 40
+            ? signingMode.did.slice(0, 20) + '...' + signingMode.did.slice(-16)
+            : signingMode.did
+          : 'N/A'}
+      </code>
+      <button
+        class="storacha-btn-icon"
+        onclick={() => {
+          if (signingMode?.did) {
+            navigator.clipboard.writeText(signingMode.did);
+            showMessage('DID copied to clipboard!');
+          }
+        }}
+        style="border-radius: 0.25rem; padding: 0.25rem; color: #0176CE; transition: all 150ms; border: none; background: transparent; cursor: pointer; flex-shrink: 0;"
+        title="Copy full DID"
+        aria-label="Copy DID to clipboard"
+      >
+        <svg
+          style="height: 0.875rem; width: 0.875rem;"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      </button>
+    </div>
+  </div>
+{/snippet}
+
+{#snippet storachaConnectedBanner()}
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to right, #BDE0FF, #FFE4AE); padding: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
+  >
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div
+        style="display: flex; height: 2rem; width: 2rem; align-items: center; justify-content: center; border-radius: 9999px; background-color: #E91315; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); flex-shrink: 0;"
+      >
+        <CheckCircle style="height: 1rem; width: 1rem; color: #ffffff;" />
+      </div>
+      <div>
+        <div
+          style="font-size: 0.875rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif;"
+        >
+          Connected to Storacha
+        </div>
+        {#if currentSpace}
+          <div style="font-size: 0.75rem; color: #0176CE; font-family: 'DM Mono', monospace;">
+            Space: {formatSpaceName(currentSpace)}
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <button
+      class="storacha-btn-icon"
+      onclick={handleLogout}
+      style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; font-size: 0.875rem; color: #E91315; transition: color 150ms, background-color 150ms; border: none; background: transparent; cursor: pointer; font-family: 'DM Sans', sans-serif;"
+    >
+      <LogOut style="height: 0.75rem; width: 0.75rem;" />
+      <span>Logout</span>
+    </button>
+  </div>
 {/snippet}
 
 {#snippet linkedDevicesPanel()}
@@ -1741,7 +1839,7 @@
             </button>
           </div>
         {:else}
-          <!-- Step 2: Authenticated — show DID info + delegation import -->
+          <!-- Step 2: Authenticated — signing badge; DID + tab panels render below tabs -->
           <div
             data-testid="storacha-post-auth"
             style="display: flex; flex-direction: column; gap: 0.75rem;"
@@ -1807,118 +1905,48 @@
                 </span>
               {/if}
             </div>
+          </div>
+        {/if}
 
-            <!-- DID Display -->
-            <div
-              style="border-radius: 0.375rem; border: 1px solid rgba(233, 19, 21, 0.3); background: linear-gradient(to right, #ffffff, #EFE3F3); padding: 0.625rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
+        {#if signingMode}
+          <!-- Tab Navigation (visible after authentication) — P2P Passkeys first -->
+          <div
+            style="border-radius: 0.5rem; background: rgba(233, 19, 21, 0.06); padding: 0.25rem; display: flex; gap: 0.25rem;"
+          >
+            <button
+              data-testid="storacha-tab-passkeys"
+              onclick={() => handleTabSwitch('passkeys')}
+              style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
+              'passkeys'
+                ? 'linear-gradient(135deg, #E91315, #FFC83F)'
+                : 'transparent'}; color: {activeTab === 'passkeys'
+                ? '#fff'
+                : '#6B7280'}; box-shadow: {activeTab === 'passkeys'
+                ? '0 2px 8px rgba(233, 19, 21, 0.3)'
+                : 'none'};"
             >
-              <div
-                style="font-size: 0.625rem; font-weight: 600; color: #6b7280; font-family: 'DM Sans', sans-serif; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"
-              >
-                Your DID
-              </div>
-              <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <code
-                  style="flex: 1; font-size: 0.75rem; color: #374151; font-family: 'DM Mono', monospace; word-break: break-all; line-height: 1.4;"
-                >
-                  {signingMode.did
-                    ? signingMode.did.length > 40
-                      ? signingMode.did.slice(0, 20) + '...' + signingMode.did.slice(-16)
-                      : signingMode.did
-                    : 'N/A'}
-                </code>
-                <button
-                  class="storacha-btn-icon"
-                  onclick={() => {
-                    if (signingMode.did) {
-                      navigator.clipboard.writeText(signingMode.did);
-                      showMessage('DID copied to clipboard!');
-                    }
-                  }}
-                  style="border-radius: 0.25rem; padding: 0.25rem; color: #0176CE; transition: all 150ms; border: none; background: transparent; cursor: pointer; flex-shrink: 0;"
-                  title="Copy full DID"
-                  aria-label="Copy DID to clipboard"
-                >
-                  <svg
-                    style="height: 0.875rem; width: 0.875rem;"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
+              P2P Passkeys
+            </button>
+            <button
+              data-testid="storacha-tab-storacha"
+              onclick={() => handleTabSwitch('storacha')}
+              style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
+              'storacha'
+                ? 'linear-gradient(135deg, #E91315, #FFC83F)'
+                : 'transparent'}; color: {activeTab === 'storacha'
+                ? '#fff'
+                : '#6B7280'}; box-shadow: {activeTab === 'storacha'
+                ? '0 2px 8px rgba(233, 19, 21, 0.3)'
+                : 'none'};"
+            >
+              Storacha
+            </button>
+          </div>
 
-            {#if activeTab !== 'passkeys'}
-              <!-- Delegation Import -->
-              <div
-                style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #EFE3F3); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
-              >
-                <h4
-                  style="margin-bottom: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;"
-                >
-                  Import UCAN Delegation
-                </h4>
-                <p
-                  style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;"
-                >
-                  Paste a <strong>Storacha UCAN delegation</strong> (from w3up, the CLI, or copied
-                  from a browser that already has access) to reach your space. This is not for
-                  linking devices over libp2p — use the <strong>P2P Passkeys</strong> tab and peer JSON
-                  for that.
-                </p>
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                  <textarea
-                    class="storacha-textarea"
-                    data-testid="storacha-delegation-textarea"
-                    bind:value={delegationText}
-                    placeholder="Paste your UCAN delegation here (base64 encoded)..."
-                    rows="4"
-                    style="width: 100%; resize: none; border-radius: 0.375rem; border: 1px solid #E91315; background-color: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
-                  ></textarea>
-                  <button
-                    class="storacha-btn-primary"
-                    data-testid="storacha-delegation-import"
-                    onclick={handleImportDelegation}
-                    disabled={isLoading || !delegationText.trim()}
-                    style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {isLoading ||
-                    !delegationText.trim()
-                      ? '0.5'
-                      : '1'}; box-sizing: border-box;"
-                  >
-                    {#if isLoading}
-                      <Loader2
-                        style="height: 1rem; width: 1rem; animation: spin 1s linear infinite;"
-                      />
-                      <span>Connecting...</span>
-                    {:else}
-                      <svg
-                        style="height: 1rem; width: 1rem;"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                        />
-                      </svg>
-                      <span>Connect</span>
-                    {/if}
-                  </button>
-                </div>
-              </div>
-            {:else}
-              <!-- Link Device (peer id) -->
+          {#if activeTab === 'passkeys'}
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              {@render yourDidCard()}
+              <!-- Link Device (peer id) — pre–Storacha-login flow -->
               <div
                 style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
               >
@@ -2000,47 +2028,6 @@
                   </button>
                 </div>
               </div>
-            {/if}
-          </div>
-        {/if}
-
-        {#if signingMode}
-          <!-- Tab Navigation (visible after authentication) — P2P Passkeys first -->
-          <div
-            style="border-radius: 0.5rem; background: rgba(233, 19, 21, 0.06); padding: 0.25rem; display: flex; gap: 0.25rem;"
-          >
-            <button
-              data-testid="storacha-tab-passkeys"
-              onclick={() => handleTabSwitch('passkeys')}
-              style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
-              'passkeys'
-                ? 'linear-gradient(135deg, #E91315, #FFC83F)'
-                : 'transparent'}; color: {activeTab === 'passkeys'
-                ? '#fff'
-                : '#6B7280'}; box-shadow: {activeTab === 'passkeys'
-                ? '0 2px 8px rgba(233, 19, 21, 0.3)'
-                : 'none'};"
-            >
-              P2P Passkeys
-            </button>
-            <button
-              data-testid="storacha-tab-storacha"
-              onclick={() => handleTabSwitch('storacha')}
-              style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab ===
-              'storacha'
-                ? 'linear-gradient(135deg, #E91315, #FFC83F)'
-                : 'transparent'}; color: {activeTab === 'storacha'
-                ? '#fff'
-                : '#6B7280'}; box-shadow: {activeTab === 'storacha'
-                ? '0 2px 8px rgba(233, 19, 21, 0.3)'
-                : 'none'};"
-            >
-              Storacha
-            </button>
-          </div>
-
-          {#if activeTab === 'passkeys'}
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
               <!-- Connection Status + Copy -->
               <div
                 style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to right, #ffffff, #FFE4AE); padding: 0.625rem 0.75rem;"
@@ -2111,46 +2098,74 @@
 
               {@render linkedDevicesPanel()}
             </div>
+          {:else if activeTab === 'storacha'}
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <div
+                style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #EFE3F3); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
+              >
+                <h4
+                  style="margin-bottom: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; font-size: 0.875rem;"
+                >
+                  Import UCAN Delegation
+                </h4>
+                <p
+                  style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;"
+                >
+                  Paste a <strong>Storacha UCAN delegation</strong> (from w3up, the CLI, or copied
+                  from a browser that already has access) to reach your space. This is not for
+                  linking devices over libp2p — use the <strong>P2P Passkeys</strong> tab and peer JSON
+                  for that.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                  <textarea
+                    class="storacha-textarea"
+                    data-testid="storacha-delegation-textarea"
+                    bind:value={delegationText}
+                    placeholder="Paste your UCAN delegation here (base64 encoded)..."
+                    rows="4"
+                    style="width: 100%; resize: none; border-radius: 0.375rem; border: 1px solid #E91315; background-color: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
+                  ></textarea>
+                  <button
+                    class="storacha-btn-primary"
+                    data-testid="storacha-delegation-import"
+                    onclick={handleImportDelegation}
+                    disabled={isLoading || !delegationText.trim()}
+                    style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {isLoading ||
+                    !delegationText.trim()
+                      ? '0.5'
+                      : '1'}; box-sizing: border-box;"
+                  >
+                    {#if isLoading}
+                      <Loader2
+                        style="height: 1rem; width: 1rem; animation: spin 1s linear infinite;"
+                      />
+                      <span>Connecting...</span>
+                    {:else}
+                      <svg
+                        style="height: 1rem; width: 1rem;"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                        />
+                      </svg>
+                      <span>Connect</span>
+                    {/if}
+                  </button>
+                </div>
+              </div>
+            </div>
           {/if}
         {/if}
       </div>
     {:else}
       <!-- Logged In Section -->
       <div style="display: flex; flex-direction: column; gap: 1rem;">
-        <!-- Account Info -->
-        <div
-          style="display: flex; align-items: center; justify-content: space-between; border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to right, #BDE0FF, #FFE4AE); padding: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
-        >
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div
-              style="display: flex; height: 2rem; width: 2rem; align-items: center; justify-content: center; border-radius: 9999px; background-color: #E91315; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); flex-shrink: 0;"
-            >
-              <CheckCircle style="height: 1rem; width: 1rem; color: #ffffff;" />
-            </div>
-            <div>
-              <div
-                style="font-size: 0.875rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif;"
-              >
-                Connected to Storacha
-              </div>
-              {#if currentSpace}
-                <div style="font-size: 0.75rem; color: #0176CE; font-family: 'DM Mono', monospace;">
-                  Space: {formatSpaceName(currentSpace)}
-                </div>
-              {/if}
-            </div>
-          </div>
-
-          <button
-            class="storacha-btn-icon"
-            onclick={handleLogout}
-            style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; font-size: 0.875rem; color: #E91315; transition: color 150ms, background-color 150ms; border: none; background: transparent; cursor: pointer; font-family: 'DM Sans', sans-serif;"
-          >
-            <LogOut style="height: 0.75rem; width: 0.75rem;" />
-            <span>Logout</span>
-          </button>
-        </div>
-
         <!-- Tab Navigation — P2P Passkeys first -->
         <div
           style="border-radius: 0.5rem; background: rgba(233, 19, 21, 0.06); padding: 0.25rem; display: flex; gap: 0.25rem;"
@@ -2186,8 +2201,10 @@
         </div>
 
         {#if activeTab === 'storacha'}
-          <!-- Action Buttons -->
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {@render storachaConnectedBanner()}
+            <!-- Action Buttons -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             <button
               class="storacha-btn-backup"
               onclick={handleBackup}
@@ -2407,10 +2424,12 @@
               </div>
             {/if}
           </div>
+          </div>
         {/if}
 
         {#if activeTab === 'passkeys'}
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {@render yourDidCard()}
             <!-- Connection Status + Copy -->
             <div
               style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to right, #ffffff, #FFE4AE); padding: 0.625rem 0.75rem;"
