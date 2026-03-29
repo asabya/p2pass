@@ -13,6 +13,7 @@ import {
   getDeviceByDID,
   grantDeviceWriteAccess,
   revokeDeviceAccess,
+  removeDeviceEntry,
   coseToJwk,
 } from './device-registry.js';
 
@@ -140,6 +141,7 @@ export class MultiDeviceManager {
       created_at: Date.now(),
       status: 'active',
       ed25519_did: this._identity.id,
+      passkey_kind: this._identity.passkeyKind || null,
     });
 
     await this.syncDevices();
@@ -247,6 +249,7 @@ export class MultiDeviceManager {
           this._credential?.credentialId || this._credential?.id || this._libp2p.peerId.toString(),
         publicKey: null,
         deviceLabel: detectDeviceLabel(),
+        passkeyKind: this._identity.passkeyKind || null,
       },
       multiaddrs
     );
@@ -325,6 +328,15 @@ export class MultiDeviceManager {
     await revokeDeviceAccess(this._devicesDb, did);
   }
 
+  /**
+   * Remove a device row from the registry and revoke its OrbitDB write access.
+   * @param {string} credentialId - value stored as device entry `credential_id`
+   */
+  async removeLinkedDevice(credentialId) {
+    if (!this._devicesDb) throw new Error('Device registry not initialized');
+    return removeDeviceEntry(this._devicesDb, credentialId);
+  }
+
   async processIncomingPairingRequest(requestMsg) {
     if (!this._devicesDb) throw new Error('Device registry not initialized');
     const { identity } = requestMsg;
@@ -348,6 +360,7 @@ export class MultiDeviceManager {
         created_at: Date.now(),
         status: 'active',
         ed25519_did: identity.id,
+        passkey_kind: identity.passkeyKind || null,
       });
       return { type: 'granted', orbitdbAddress: this._dbAddress };
     }

@@ -1,6 +1,6 @@
 {
   "name": "@le-space/p2pass",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "P2Pass — peer-to-peer passkeys, UCANs, OrbitDB registry sync, and Storacha backup (Svelte)",
   "license": "MIT",
@@ -18,6 +18,7 @@
   "scripts": {
     "dev:example": "vite --config example/vite.config.js",
     "build:example": "vite build --config example/vite.config.js",
+    "kill:dev": "bash scripts/kill-relay-and-vite.sh",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test": "vitest run",
@@ -34,7 +35,27 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "svelte": "./dist/index.js"
+      "svelte": "./dist/index.js",
+      "browser": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./signing-preference": {
+      "types": "./dist/identity/signing-preference.d.ts",
+      "import": "./dist/identity/signing-preference.js",
+      "default": "./dist/identity/signing-preference.js"
+    },
+    "./ui/StorachaFab": {
+      "types": "./dist/ui/StorachaFab.svelte.d.ts",
+      "svelte": "./dist/ui/StorachaFab.svelte",
+      "import": "./dist/ui/StorachaFab.svelte",
+      "default": "./dist/ui/StorachaFab.svelte"
+    },
+    "./ui/StorachaFab.svelte": {
+      "types": "./dist/ui/StorachaFab.svelte.d.ts",
+      "svelte": "./dist/ui/StorachaFab.svelte",
+      "import": "./dist/ui/StorachaFab.svelte",
+      "default": "./dist/ui/StorachaFab.svelte"
     }
   },
   "files": [

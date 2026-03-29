@@ -1,9 +1,10 @@
 // @le-space/p2pass — public API
 export const VERSION = '0.1.0';
 
-// UI components
-export { default as StorachaIntegration } from './ui/StorachaIntegration.svelte';
-export { default as StorachaFab } from './ui/StorachaFab.svelte';
+// Explicit default bindings (not `export { default as X } from`) — avoids star-export / default resolution errors in Vite.
+import StorachaIntegration from './ui/StorachaIntegration.svelte';
+import StorachaFab from './ui/StorachaFab.svelte';
+export { StorachaIntegration, StorachaFab };
 
 // Identity
 export { IdentityService, hasLocalPasskeyHint } from './identity/identity-service.js';
@@ -24,6 +25,7 @@ export {
   storeDelegation,
   loadStoredDelegation,
   clearStoredDelegation,
+  formatDelegationsTooltipSummary,
 } from './ucan/storacha-auth.js';
 
 // Registry (multi-device + credential storage)
@@ -36,6 +38,9 @@ export {
   getDeviceByDID,
   grantDeviceWriteAccess,
   revokeDeviceAccess,
+  removeDeviceEntry,
+  delegationCountForDevice,
+  delegationsEntriesForDevice,
   hashCredentialId,
   coseToJwk,
   storeDelegationEntry,

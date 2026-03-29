@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   addVirtualWebAuthn,
   createPasskeyAndOpenP2PTab,
-  getLinkPayloadJsonForE2e,
+  pairBobWithAlice,
 } from './helpers.js';
 
 const signingMode = /** @type {'hardware-ed25519' | 'hardware-p256' | 'worker'} */ (
@@ -35,18 +35,7 @@ test.describe(`P2P link devices (local relay) — ${signingMode}`, () => {
     await createPasskeyAndOpenP2PTab(alicePage, { signingPreference: signingMode });
     await createPasskeyAndOpenP2PTab(bobPage, { signingPreference: signingMode });
 
-    // Isolated contexts rarely have a working peer-id-only route; use full payload like manual JSON paste.
-    const alicePayload = await getLinkPayloadJsonForE2e(alicePage);
-    expect(alicePayload).toContain('"multiaddrs"');
-
-    await bobPage.getByTestId('storacha-link-peer-input').first().fill(alicePayload);
-    await bobPage.getByTestId('storacha-link-device-submit').first().click();
-
-    await alicePage.bringToFront();
-    await alicePage
-      .getByTestId('storacha-pairing-prompt')
-      .waitFor({ state: 'visible', timeout: 120_000 });
-    await alicePage.getByTestId('storacha-pairing-approve').click({ timeout: 120_000 });
+    await pairBobWithAlice(alicePage, bobPage);
 
     const row = alicePage.locator('[data-testid="storacha-linked-device-row"]');
     await expect(row).toHaveCount(2, { timeout: 120_000 });

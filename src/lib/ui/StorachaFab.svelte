@@ -13,16 +13,41 @@
     libp2p = null,
     preferWorkerMode = false,
     signingPreference = null,
+    /** When false, hide the floating FAB (e.g. host app opens the panel from the footer). */
+    fabVisible = true,
+    /**
+     * When set, panel open state is synced with this store so the host can toggle from a footer control.
+     * @type {import('svelte/store').Writable<boolean> | null}
+     */
+    panelOpenStore = null,
   } = $props();
 
   let showPanel = $state(false);
   let isHovered = $state(false);
+
+  function setPanelOpen(/** @type {boolean} */ v) {
+    showPanel = v;
+    panelOpenStore?.set(v);
+  }
+
+  function togglePanel() {
+    setPanelOpen(!showPanel);
+  }
+
+  $effect(() => {
+    if (!panelOpenStore) return;
+    const unsub = panelOpenStore.subscribe((v) => {
+      showPanel = v;
+    });
+    return unsub;
+  });
 </script>
 
 <!-- Floating Storacha FAB Button -->
+{#if fabVisible}
 <button
   data-testid="storacha-fab-toggle"
-  onclick={() => (showPanel = !showPanel)}
+  onclick={() => togglePanel()}
   onmouseenter={() => (isHovered = true)}
   onmouseleave={() => (isHovered = false)}
   title={showPanel ? 'Hide P2Pass panel' : 'Open P2Pass — passkey & UCAN, peer-to-peer'}
@@ -84,13 +109,14 @@
     />
   </svg>
 </button>
+{/if}
 
 <!-- Backdrop overlay -->
 {#if showPanel}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
-    onclick={() => (showPanel = false)}
-    onkeydown={(e) => e.key === 'Escape' && (showPanel = false)}
+    onclick={() => setPanelOpen(false)}
+    onkeydown={(e) => e.key === 'Escape' && setPanelOpen(false)}
     role="presentation"
     style="
 			position: fixed;
@@ -125,7 +151,7 @@
     {onBackup}
     {onAuthenticate}
     onPairingPromptOpen={() => {
-      showPanel = true;
+      setPanelOpen(true);
     }}
     {libp2p}
     {preferWorkerMode}

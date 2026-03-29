@@ -13,6 +13,9 @@ export {
   getDeviceByDID,
   grantDeviceWriteAccess,
   revokeDeviceAccess,
+  removeDeviceEntry,
+  delegationCountForDevice,
+  delegationsEntriesForDevice,
   hashCredentialId,
   coseToJwk,
   // Delegation storage

@@ -4,7 +4,7 @@
  * Protocol: /orbitdb/link-device/1.0.0
  *
  * Message flow:
- *   Device B → Device A: { type: 'request', identity: { id, credentialId, deviceLabel } }
+ *   Device B → Device A: { type: 'request', identity: { id, credentialId, deviceLabel, passkeyKind?, ... } }
  *   Device A → Device B: { type: 'granted', orbitdbAddress } | { type: 'rejected', reason }
  *
  * Copied from orbitdb-identity-provider-webauthn-did/src/multi-device/pairing-protocol.js
@@ -330,12 +330,14 @@ export async function registerLinkDeviceHandler(libp2p, db, onRequest, onDeviceL
           result = { type: 'granted', orbitdbAddress: db.address };
           if (isKnown && onDeviceLinked) {
             onDeviceLinked({
+              ...isKnown,
               credential_id: identity.credentialId,
-              public_key: identity.publicKey || null,
-              device_label: identity.deviceLabel || 'Linked Device',
+              public_key: identity.publicKey ?? isKnown.public_key ?? null,
+              device_label: identity.deviceLabel || isKnown.device_label || 'Linked Device',
               created_at: isKnown.created_at || Date.now(),
               status: 'active',
               ed25519_did: identity.id,
+              passkey_kind: identity.passkeyKind || isKnown.passkey_kind || null,
             });
           }
         } else {
@@ -365,6 +367,7 @@ export async function registerLinkDeviceHandler(libp2p, db, onRequest, onDeviceL
               created_at: Date.now(),
               status: 'active',
               ed25519_did: identity.id,
+              passkey_kind: identity.passkeyKind || null,
             };
             try {
               await registerDevice(db, deviceEntry);
@@ -528,7 +531,7 @@ export function detectDeviceLabel() {
  *
  * @param {Object} libp2p - libp2p instance (Device B)
  * @param {string|Object} deviceAPeerId - peerId string or PeerId object of Device A
- * @param {Object} identity - { id, credentialId, publicKey?, deviceLabel? }
+ * @param {Object} identity - { id, credentialId, publicKey?, deviceLabel?, passkeyKind? }
  * @param {string[]} [hintMultiaddrs] - Known multiaddrs for Device A (from QR payload)
  * @returns {Promise<{type: 'granted', orbitdbAddress: string}|{type: 'rejected', reason: string}>}
  */
@@ -628,6 +631,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
       credentialId: identity.credentialId,
       publicKey: identity.publicKey || null,
       deviceLabel: identity.deviceLabel || detectDeviceLabel(),
+      passkeyKind: identity.passkeyKind || null,
     },
   };
   pairingFlow('BOB', 'sending link-device REQUEST (length-prefixed JSON) to Alice', {

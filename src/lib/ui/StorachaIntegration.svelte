@@ -4,7 +4,14 @@
     readSigningPreferenceFromStorage,
     writeSigningPreferenceToStorage,
   } from '../identity/signing-preference.js';
-  import { Upload, LogOut, Loader2, AlertCircle, CheckCircle, Download } from 'lucide-svelte';
+  // Per-icon entrypoints avoid the root `lucide-svelte` barrel (`export *`), which can trigger
+  // "Importing binding name 'default' cannot be resolved by star export entries" in strict ESM.
+  import Upload from 'lucide-svelte/icons/upload';
+  import LogOut from 'lucide-svelte/icons/log-out';
+  import Loader2 from 'lucide-svelte/icons/loader-2';
+  import AlertCircle from 'lucide-svelte/icons/alert-circle';
+  import CheckCircle from 'lucide-svelte/icons/check-circle';
+  import Download from 'lucide-svelte/icons/download';
   import { getSpaceUsage } from './storacha-backup.js';
   import { OrbitDBStorachaBridge } from 'orbitdb-storacha-bridge';
   import { IdentityService, hasLocalPasskeyHint } from '../identity/identity-service.js';
@@ -15,6 +22,7 @@
     storeDelegation,
     loadStoredDelegation,
     clearStoredDelegation,
+    formatDelegationsTooltipSummary,
   } from '../ucan/storacha-auth.js';
   import {
     openDeviceRegistry,
@@ -27,6 +35,9 @@
     storeArchiveEntry,
     listDelegations,
     storeDelegationEntry,
+    removeDeviceEntry,
+    delegationsEntriesForDevice,
+    hashCredentialId,
   } from '../registry/device-registry.js';
   import {
     createManifest,
@@ -84,6 +95,92 @@
     if (s.includes('win')) return '\uD83D\uDDA5\uFE0F';
     if (s.includes('linux')) return '\uD83D\uDC27';
     return '\uD83D\uDCF1';
+  }
+
+  /** @param {{ mode?: string, algorithm?: string } | null} sm */
+  function passkeyKindFromSigningMode(sm) {
+    if (!sm) return null;
+    if (sm.mode === 'worker') return 'worker-ed25519';
+    if (sm.algorithm === 'P-256') return 'hardware-p256';
+    return 'hardware-ed25519';
+  }
+
+  /** Passkey kind label for a registry device row (stored passkey_kind, else local session). */
+  function linkedDevicePasskeyLabel(/** @type {Record<string, unknown>} */ device) {
+    const k = device.passkey_kind;
+    if (typeof k === 'string' && k) return k;
+    if (signingMode?.did && device.ed25519_did === signingMode.did) {
+      return passkeyKindFromSigningMode(signingMode);
+    }
+    return null;
+  }
+
+  /** UCAN delegation counts keyed by device DID (see {@link delegationsEntriesForDevice}). */
+  let ucanCountsByDid = $state(/** @type {Record<string, number>} */ ({}));
+  /** Parsed UCAN summary for each device row’s badge `title`. */
+  let ucanTooltipByDid = $state(/** @type {Record<string, string>} */ ({}));
+
+  async function refreshLinkedDeviceDelegationCounts() {
+    if (!registryDb) {
+      ucanCountsByDid = {};
+      ucanTooltipByDid = {};
+      return;
+    }
+    try {
+      const delegations = await listDelegations(registryDb);
+      const ownerDid = localStorage.getItem(OWNER_DID_KEY) || signingMode?.did || '';
+      /** @type {Record<string, number>} */
+      const next = {};
+      /** @type {Record<string, string>} */
+      const tips = {};
+      for (const dev of devices) {
+        const did = dev.ed25519_did;
+        if (typeof did !== 'string' || !did) continue;
+        const entries = delegationsEntriesForDevice(delegations, did, ownerDid);
+        next[did] = entries.length;
+        if (entries.length > 0) {
+          tips[did] = await formatDelegationsTooltipSummary(
+            /** @type {Array<{ delegation?: string, space_did?: string, label?: string }>} */ (
+              entries
+            )
+          );
+        }
+      }
+      ucanCountsByDid = next;
+      ucanTooltipByDid = tips;
+    } catch {
+      ucanCountsByDid = {};
+      ucanTooltipByDid = {};
+    }
+  }
+
+  async function confirmRemoveLinkedDevice(/** @type {Record<string, unknown>} */ device) {
+    const label = String(device.device_label || device.ed25519_did || 'this device');
+    const credId = device.credential_id;
+    if (typeof credId !== 'string' || !credId) {
+      showMessage('Cannot remove device: missing credential id.', 'error');
+      return;
+    }
+    if (
+      !confirm(
+        `Remove linked device "${label}" from the registry? Its OrbitDB write access will be revoked.`
+      )
+    ) {
+      return;
+    }
+    const db = deviceManager?.getRegistryDb?.() ?? registryDb;
+    if (!db) {
+      showMessage('Cannot remove device: registry not ready.', 'error');
+      return;
+    }
+    try {
+      await removeDeviceEntry(db, credId);
+      devices = devices.filter((d) => d.ed25519_did !== device.ed25519_did);
+      await refreshLinkedDeviceDelegationCounts();
+      showMessage('Device removed from linked devices.');
+    } catch (err) {
+      showMessage(`Failed to remove device: ${err?.message || err}`, 'error');
+    }
   }
 
   // Component state
@@ -225,6 +322,15 @@
     };
   });
 
+  /** Per-device UCAN delegation counts for linked-device badges. */
+  $effect(() => {
+    registryDb;
+    devices;
+    signingMode?.did;
+    isLoggedIn;
+    void refreshLinkedDeviceDelegationCounts();
+  });
+
   /** Start MultiDeviceManager once libp2p + registry exist (handles restored signingMode / late orbitdb). */
   $effect(() => {
     if (!signingMode?.did || !orbitdb || !libp2p || !registryDb || deviceManager) return;
@@ -344,7 +450,12 @@
 
     if (store) {
       const spaceDid = storeSpaceDid || client.currentSpace()?.did?.() || '';
-      await storeDelegation(delegationStr, storeRegistryDb, spaceDid);
+      await storeDelegation(
+        delegationStr,
+        storeRegistryDb,
+        spaceDid,
+        signingMode?.did || ''
+      );
     }
 
     currentSpace = client.currentSpace();
@@ -552,7 +663,14 @@
     if (!registryDb || !signingMode?.did) return;
     try {
       const existing = await getDeviceByDID(registryDb, signingMode.did);
-      if (existing) return;
+      const kind = passkeyKindFromSigningMode(signingMode);
+      if (existing) {
+        if (kind && !existing.passkey_kind) {
+          const k = await hashCredentialId(existing.credential_id);
+          await registryDb.put(k, { ...existing, passkey_kind: kind });
+        }
+        return;
+      }
       const credential = loadWebAuthnCredentialSafe();
       await registerDevice(registryDb, {
         credential_id:
@@ -568,6 +686,7 @@
         created_at: Date.now(),
         status: 'active',
         ed25519_did: signingMode.did,
+        passkey_kind: kind,
       });
       console.log('[ui] Self-registered device in registry');
     } catch (err) {
@@ -625,7 +744,7 @@
         credential,
         orbitdb,
         libp2p,
-        identity: { id: signingMode.did },
+        identity: { id: signingMode.did, passkeyKind: passkeyKindFromSigningMode(signingMode) },
         onPairingRequest: async (request) => {
           pairingFlow(
             'ALICE',
@@ -733,7 +852,13 @@
           await storeArchiveEntry(newDb, did, archive.ciphertext, archive.iv);
         }
         for (const d of delegations) {
-          await storeDelegationEntry(newDb, d.delegation, d.space_did);
+          await storeDelegationEntry(
+            newDb,
+            d.delegation,
+            d.space_did,
+            d.label,
+            d.stored_by_did
+          );
         }
         console.log('[ui] Registry migration complete after', Date.now() - start, 'ms');
         return true;
@@ -1132,10 +1257,11 @@
     {:else}
       <div style="display: flex; flex-direction: column; gap: 0.375rem;">
         {#each devices as device, i (device.credential_id || device.ed25519_did || device.device_label || i)}
+          {@const passkeyBadge = linkedDevicePasskeyLabel(device)}
           <div
             data-testid="storacha-linked-device-row"
             data-device-label={device.device_label || ''}
-            style="display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem; border-radius: 0.375rem; background: rgba(255, 255, 255, 0.7); border-left: 3px solid {device.status ===
+            style="display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.5rem; border-radius: 0.375rem; background: rgba(255, 255, 255, 0.7); border-left: 3px solid {device.status ===
             'active'
               ? '#10b981'
               : '#E91315'};"
@@ -1154,17 +1280,53 @@
                   ? device.ed25519_did.slice(0, 16) + '...' + device.ed25519_did.slice(-8)
                   : 'N/A'}
               </code>
+              <div
+                style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; align-items: center;"
+              >
+                {#if passkeyBadge}
+                  <span
+                    style="font-size: 0.55rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 9999px; background: #e0e7ff; color: #3730a3; font-family: 'DM Mono', monospace;"
+                    title="Passkey signing mode for this device"
+                  >
+                    {passkeyBadge}
+                  </span>
+                {/if}
+                {#if device.ed25519_did && (ucanCountsByDid[device.ed25519_did] ?? 0) > 0}
+                  <span
+                    style="font-size: 0.55rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 9999px; background: #fef3c7; color: #92400e; font-family: 'DM Sans', sans-serif;"
+                    title={ucanTooltipByDid[device.ed25519_did]?.trim()
+                      ? ucanTooltipByDid[device.ed25519_did]
+                      : 'UCAN delegations on this device (parsing summary…)'}
+                  >
+                    {ucanCountsByDid[device.ed25519_did]}
+                    {ucanCountsByDid[device.ed25519_did] === 1 ? ' UCAN' : ' UCANs'}
+                  </span>
+                {/if}
+              </div>
             </div>
-            <span
-              style="font-size: 0.6rem; font-weight: 600; padding: 0.125rem 0.375rem; border-radius: 9999px; flex-shrink: 0; background: {device.status ===
-              'active'
-                ? '#dcfce7'
-                : '#fee2e2'}; color: {device.status === 'active'
-                ? '#166534'
-                : '#991b1b'}; font-family: 'DM Sans', sans-serif;"
+            <div
+              style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; flex-shrink: 0;"
             >
-              {device.status}
-            </span>
+              <span
+                style="font-size: 0.6rem; font-weight: 600; padding: 0.125rem 0.375rem; border-radius: 9999px; background: {device.status ===
+                'active'
+                  ? '#dcfce7'
+                  : '#fee2e2'}; color: {device.status === 'active'
+                  ? '#166534'
+                  : '#991b1b'}; font-family: 'DM Sans', sans-serif;"
+              >
+                {device.status}
+              </span>
+              <button
+                type="button"
+                data-testid="storacha-linked-device-remove"
+                aria-label="Remove linked device"
+                onclick={() => confirmRemoveLinkedDevice(device)}
+                style="font-size: 0.6rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 0.25rem; background: transparent; color: #b91c1c; border: 1px solid #fca5a5; cursor: pointer; font-family: 'DM Sans', sans-serif;"
+              >
+                Remove
+              </button>
+            </div>
           </div>
         {/each}
       </div>
@@ -1548,6 +1710,7 @@
 
             <!-- Recover from backup (IPNS / manifest) -->
             <button
+              data-testid="storacha-recover-passkey"
               onclick={handleRecover}
               disabled={isRecovering}
               style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: transparent; padding: 0.5rem 1.25rem; color: #E91315; border: 1px solid #E91315; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; font-size: 0.75rem; opacity: {isRecovering
@@ -1714,6 +1877,7 @@
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                   <textarea
                     class="storacha-textarea"
+                    data-testid="storacha-delegation-textarea"
                     bind:value={delegationText}
                     placeholder="Paste your UCAN delegation here (base64 encoded)..."
                     rows="4"
@@ -1721,6 +1885,7 @@
                   ></textarea>
                   <button
                     class="storacha-btn-primary"
+                    data-testid="storacha-delegation-import"
                     onclick={handleImportDelegation}
                     disabled={isLoading || !delegationText.trim()}
                     style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {isLoading ||
@@ -1790,6 +1955,7 @@
                   />
                   {#if linkError}
                     <div
+                      data-testid="storacha-link-error"
                       style="font-size: 0.7rem; color: #dc2626; font-family: 'DM Sans', sans-serif;"
                     >
                       {linkError}
@@ -2395,6 +2561,7 @@
                 </div>
                 {#if linkError}
                   <div
+                    data-testid="storacha-link-error"
                     style="margin-top: 0.5rem; font-size: 0.75rem; color: #b91c1c; font-family: 'DM Sans', sans-serif;"
                   >
                     {linkError}
