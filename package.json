@@ -1,6 +1,6 @@
 {
 	"name": "p2pass",
-	"version": "0.1.0",
+	"version": "0.3.2",
 	"private": false,
 	"type": "module",
 	"description": "P2Pass identities with OrbitDB registry sync and Storacha backup",
