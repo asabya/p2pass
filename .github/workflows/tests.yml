@@ -47,3 +47,5 @@ jobs:
         env:
           CI: true
           E2E_SIGNING_MODE: ${{ matrix.signing_mode }}
+          # Optional: repo secret so recovery-worker (b) IPNS/Storacha path runs in CI (skipped if unset).
+          E2E_STORACHA_DELEGATION: ${{ secrets.E2E_STORACHA_DELEGATION }}

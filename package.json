@@ -20,6 +20,7 @@
     "build:example": "vite build --config example/vite.config.js",
     "kill:dev": "bash scripts/kill-relay-and-vite.sh",
     "test:e2e": "playwright test",
+    "test:e2e:recovery-ipns": "playwright test e2e/recovery-worker.spec.js -g \"(b)\"",
     "test:e2e:ui": "playwright test --ui",
     "test": "vitest run",
     "test:watch": "vitest",
