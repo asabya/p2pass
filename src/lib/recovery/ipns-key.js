@@ -13,7 +13,7 @@ import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 const PREFIX = '[recovery]';
 
 /**
- * Compute a deterministic PRF salt by hashing "p2p-passkeys:" + hostname.
+ * Compute a deterministic PRF salt by hashing "p2pass:" + hostname.
  *
  * The salt is used in the WebAuthn PRF extension so the same passkey on
  * the same origin always produces the same seed material.
@@ -28,7 +28,7 @@ export async function computeDeterministicPrfSalt() {
     hostname = 'localhost';
   }
 
-  const input = `p2p-passkeys:${hostname}`;
+  const input = `p2pass:${hostname}`;
   const encoded = new TextEncoder().encode(input);
   const hash = await crypto.subtle.digest('SHA-256', encoded);
   return new Uint8Array(hash);
@@ -39,7 +39,7 @@ export async function computeDeterministicPrfSalt() {
  *
  * The derivation chain is:
  *   prfSeed  -->  HKDF(SHA-256, salt=SHA-256(prfSeed)[0:16],
- *                      info="p2p-passkeys/ipns-key")  -->  32-byte seed
+ *                      info="p2pass/ipns-key")  -->  32-byte seed
  *           -->  Ed25519 keypair via libp2p/crypto
  *
  * @param {Uint8Array} prfSeed - raw PRF seed bytes
@@ -53,7 +53,7 @@ export async function deriveIPNSKeyPair(prfSeed) {
   const seedHash = await crypto.subtle.digest('SHA-256', prfSeed);
   const salt = new Uint8Array(seedHash).slice(0, 16);
 
-  const info = new TextEncoder().encode('p2p-passkeys/ipns-key');
+  const info = new TextEncoder().encode('p2pass/ipns-key');
 
   // Derive 256 bits (32 bytes) of key material
   const derivedBits = await crypto.subtle.deriveBits(

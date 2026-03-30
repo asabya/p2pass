@@ -56,7 +56,7 @@ jobs:
 
       # Build Svelte demo
       - name: Build demo
-        run: BASE_URL=/p2p-passkeys/demo/ npx vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir
+        run: BASE_URL=/p2pass/demo/ npx vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir
         env:
           VITE_BOOTSTRAP_PEERS: ${{ secrets.VITE_BOOTSTRAP_PEERS }}
 

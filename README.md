@@ -1,6 +1,6 @@
 # P2Pass (`@le-space/p2pass`)
 
-[![Tests](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml/badge.svg)](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml)
+[![Tests](https://github.com/asabya/p2pass/actions/workflows/tests.yml/badge.svg)](https://github.com/asabya/p2pass/actions/workflows/tests.yml)
 
 Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
 

@@ -7,10 +7,10 @@ const config = {
   favicon: 'img/favicon.ico',
 
   url: 'https://asabya.github.io',
-  baseUrl: '/p2p-passkeys/guide/',
+  baseUrl: '/p2pass/guide/',
 
   organizationName: 'asabya',
-  projectName: 'p2p-passkeys',
+  projectName: 'p2pass',
 
   onBrokenLinks: 'throw',
   onBrokenAnchors: 'warn',
@@ -33,7 +33,7 @@ const config = {
       ({
         docs: {
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/asabya/p2p-passkeys/tree/master/docs-site/',
+          editUrl: 'https://github.com/asabya/p2pass/tree/master/docs-site/',
         },
         blog: false,
         theme: {
@@ -56,12 +56,12 @@ const config = {
             label: 'Docs',
           },
           {
-            href: 'https://asabya.github.io/p2p-passkeys/demo/',
+            href: 'https://asabya.github.io/p2pass/demo/',
             position: 'left',
             label: 'Demo',
           },
           {
-            href: 'https://github.com/asabya/p2p-passkeys',
+            href: 'https://github.com/asabya/p2pass',
             label: 'GitHub',
             position: 'right',
           },
@@ -90,8 +90,8 @@ const config = {
           {
             title: 'More',
             items: [
-              { label: 'GitHub', href: 'https://github.com/asabya/p2p-passkeys' },
-              { label: 'Demo', href: 'https://asabya.github.io/p2p-passkeys/demo/' },
+              { label: 'GitHub', href: 'https://github.com/asabya/p2pass' },
+              { label: 'Demo', href: 'https://asabya.github.io/p2pass/demo/' },
             ],
           },
         ],
