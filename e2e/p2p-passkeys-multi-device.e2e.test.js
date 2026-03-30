@@ -7,7 +7,7 @@ import {
   getWidgetState,
   waitForDeviceCount,
   waitForWidgetApi,
-} from './helpers/e2e.js';
+} from './helpers/widget.js';
 
 test.describe('P2Pass Multi-Device E2E', () => {
   test('creates different DIDs in separate browser contexts', async ({ browser }) => {

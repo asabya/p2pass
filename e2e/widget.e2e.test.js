@@ -6,7 +6,7 @@ import {
   getWidgetState,
   readClipboard,
   waitForDeviceCount,
-} from './helpers/e2e.js';
+} from './helpers/widget.js';
 
 test.describe('Widget E2E', () => {
   test('shows p2p passkeys as the first tab after authentication', async ({ browser }) => {
