@@ -48,7 +48,7 @@ function getDefaultBootstrapList() {
 
 const PUBSUB_PEER_DISCOVERY_TOPIC =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PUBSUB_TOPICS) ||
-  'p2p-passkeys._peer-discovery._p2p._pubsub';
+  'p2pass._peer-discovery._p2p._pubsub';
 
 const STUN_SERVERS = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
@@ -213,7 +213,7 @@ export async function createLibp2pInstance(options = {}) {
  * @param {string} [dbPath] - path prefix for Level storage
  * @returns {Promise<Object>} Helia instance
  */
-export async function createHeliaInstance(libp2p, dbPath = './p2p-passkeys') {
+export async function createHeliaInstance(libp2p, dbPath = './p2pass') {
   const ipfs = await createHelia({
     libp2p,
     blockstore: new LevelBlockstore(`${dbPath}/blocks`),

@@ -48,5 +48,5 @@ graph TD
 
 ## Source
 
-- GitHub: [P2Pass repository](https://github.com/asabya/p2p-passkeys)
+- GitHub: [P2Pass repository](https://github.com/asabya/p2pass)
 - Issue tracker: [NiKrause/simple-todo#24](https://github.com/NiKrause/simple-todo/issues/24)
