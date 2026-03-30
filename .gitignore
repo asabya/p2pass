@@ -33,6 +33,7 @@ CLAUDE.md
 # E2E / relay
 e2e/.bootstrap-peers
 e2e/relay-info.json
+e2e/.storacha-e2e.json
 relay/test-relay-datastore/
 test-results/
 playwright-report/

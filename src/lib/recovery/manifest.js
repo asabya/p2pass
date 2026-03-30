@@ -16,6 +16,31 @@ const PREFIX = '[recovery]';
 /** Gateway URL template for fetching IPFS content */
 const GATEWAY = 'https://{cid}.ipfs.w3s.link/';
 
+/**
+ * When true (e2e / local dev), skip w3name + public gateway and keep manifest + archive payloads
+ * in localStorage so `recoverFromIPNS` works without production IPNS/IPFS.
+ */
+function recoveryIpnsMockEnabled() {
+  try {
+    return (
+      import.meta.env.VITE_RECOVERY_MOCK_IPNS === '1' ||
+      import.meta.env.VITE_RECOVERY_MOCK_IPNS === 'true'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** @param {string} nameString w3name id e.g. k51qzi5uqu5di… */
+function mockManifestStorageKey(nameString) {
+  return `p2p_passkeys_mock_ipns_manifest_${nameString}`;
+}
+
+/** @param {string} cid */
+function mockArchiveStorageKey(cid) {
+  return `p2p_passkeys_mock_ipfs_archive_${cid}`;
+}
+
 /** localStorage key for persisting the latest IPNS revision */
 const REVISION_KEY = 'p2p_passkeys_ipns_revision';
 
@@ -70,8 +95,20 @@ export async function uploadArchiveToIPFS(storachaClient, archiveData) {
     { type: 'application/json' }
   );
   const cid = await storachaClient.uploadFile(blob);
-  console.log(PREFIX, 'Encrypted archive uploaded to IPFS:', cid.toString());
-  return cid.toString();
+  const cidStr = cid.toString();
+  if (recoveryIpnsMockEnabled()) {
+    try {
+      localStorage.setItem(
+        mockArchiveStorageKey(cidStr),
+        JSON.stringify({ ciphertext: archiveData.ciphertext, iv: archiveData.iv })
+      );
+      console.log(PREFIX, 'Mock: stored archive copy for CID', cidStr);
+    } catch (e) {
+      console.log(PREFIX, 'Mock: could not persist archive copy:', e?.message ?? e);
+    }
+  }
+  console.log(PREFIX, 'Encrypted archive uploaded to IPFS:', cidStr);
+  return cidStr;
 }
 
 /**
@@ -81,6 +118,22 @@ export async function uploadArchiveToIPFS(storachaClient, archiveData) {
  * @returns {Promise<{ ciphertext: string, iv: string }|null>}
  */
 export async function fetchArchiveFromIPFS(cid) {
+  if (recoveryIpnsMockEnabled()) {
+    try {
+      const raw = localStorage.getItem(mockArchiveStorageKey(cid));
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data?.ciphertext && data?.iv) {
+          console.log(PREFIX, 'Mock: loaded archive from localStorage for CID', cid);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.log(PREFIX, 'Mock: archive read failed:', e?.message ?? e);
+    }
+    return null;
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -124,9 +177,26 @@ export async function publishManifest(storachaClient, ipnsPrivateKey, manifest) 
   // 2. Upload the manifest JSON to Storacha
   const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
   const cid = await storachaClient.uploadFile(manifestBlob);
+  const manifestCidStr = cid.toString();
+
+  if (recoveryIpnsMockEnabled()) {
+    try {
+      localStorage.setItem(mockManifestStorageKey(name.toString()), JSON.stringify(manifest));
+      console.log(
+        PREFIX,
+        `Mock: published manifest locally for w3name ${name.toString()} (skipped real IPNS)`
+      );
+    } catch (e) {
+      console.log(PREFIX, 'Mock: could not store manifest:', e?.message ?? e);
+    }
+    return {
+      nameString: name.toString(),
+      manifestCID: manifestCidStr,
+    };
+  }
 
   // 3. Build the IPNS value pointing at the uploaded CID
-  const value = `/ipfs/${cid.toString()}`;
+  const value = `/ipfs/${manifestCidStr}`;
 
   // 4. Create or increment the IPNS revision
   let revision;
@@ -153,7 +223,7 @@ export async function publishManifest(storachaClient, ipnsPrivateKey, manifest) 
 
   return {
     nameString: name.toString(),
-    manifestCID: cid.toString(),
+    manifestCID: manifestCidStr,
   };
 }
 
@@ -204,6 +274,26 @@ export async function resolveManifestByName(nameString) {
  * @private
  */
 async function fetchManifestForName(name) {
+  if (recoveryIpnsMockEnabled()) {
+    try {
+      const raw = localStorage.getItem(mockManifestStorageKey(name.toString()));
+      if (!raw) {
+        console.log(PREFIX, 'Mock: no local manifest for name', name.toString());
+        return null;
+      }
+      const manifest = JSON.parse(raw);
+      if (!manifest.version || !manifest.registryAddress) {
+        console.log(PREFIX, 'Mock: invalid manifest schema');
+        return null;
+      }
+      console.log(PREFIX, 'Mock: resolved manifest from localStorage');
+      return manifest;
+    } catch (e) {
+      console.log(PREFIX, 'Mock: manifest parse failed:', e?.message ?? e);
+      return null;
+    }
+  }
+
   // Resolve the IPNS record to get the /ipfs/... value
   const revision = await W3Name.resolve(name);
   const ipfsPath = revision.value; // e.g. "/ipfs/bafyabc..."

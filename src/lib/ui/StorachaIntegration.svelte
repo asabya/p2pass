@@ -1236,6 +1236,7 @@
 {#snippet yourDidCard()}
   <div
     data-testid="storacha-your-did"
+    data-storacha-did-full={signingMode?.did ?? ''}
     style="border-radius: 0.375rem; border: 1px solid rgba(233, 19, 21, 0.3); background: linear-gradient(to right, #ffffff, #EFE3F3); padding: 0.625rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
   >
     <div

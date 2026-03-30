@@ -126,7 +126,11 @@ export async function recoverPasskeyFromPreAuth(page, options = {}) {
   await expect(page.getByTestId(signingPreferenceRadioTestId(mode))).toBeChecked();
 
   await page.getByTestId('storacha-recover-passkey').click();
-  await expect(page.getByTestId('storacha-post-auth')).toBeVisible({ timeout: 120_000 });
+  // After IPNS recovery, `connectStoracha` may set `isLoggedIn` — then `storacha-post-auth` is not
+  // rendered (only when !isLoggedIn). Open P2P Passkeys so DID + link UI match pre-auth and logged-in shells.
+  await expect(page.getByTestId('storacha-tab-passkeys').first()).toBeVisible({ timeout: 120_000 });
+  await page.getByTestId('storacha-tab-passkeys').first().click();
+  await expect(page.getByTestId('storacha-your-did').first()).toBeVisible({ timeout: 120_000 });
   await expect(page.getByTestId('storacha-link-device-submit').first()).toHaveAttribute(
     'data-mdm-ready',
     'true',

@@ -4,7 +4,16 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '.svelte-kit/**', 'coverage/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '.svelte-kit/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      /** Vendored from ucan-upload-wall (in-memory upload-api harness) */
+      'e2e/local-storacha-api/**',
+    ],
   },
   js.configs.recommended,
   ...svelte.configs['flat/recommended'],

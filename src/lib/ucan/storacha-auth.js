@@ -8,6 +8,9 @@
 
 import * as Client from '@storacha/client';
 import { StoreMemory } from '@storacha/client/stores/memory';
+import * as ucantoClient from '@ucanto/client';
+import { CAR, HTTP } from '@ucanto/transport';
+import * as DID from '@ipld/dag-ucan/did';
 import {
   storeDelegationEntry,
   listDelegations,
@@ -15,6 +18,49 @@ import {
 } from '../registry/device-registry.js';
 
 const STORAGE_KEY_DELEGATION = 'storacha_ucan_delegation';
+
+/**
+ * When `scripts/e2e-with-relay.mjs` starts the in-memory upload-api, it sets these Vite env vars
+ * so the browser talks to localhost instead of production Storacha.
+ *
+ * @returns {import('@storacha/client/types').ClientFactoryOptions}
+ */
+function getOptionalStorachaClientEnvOptions() {
+  try {
+    const uploadUrl = import.meta.env?.VITE_STORACHA_UPLOAD_URL;
+    const serviceDid = import.meta.env?.VITE_STORACHA_SERVICE_DID;
+    const receiptsRaw = import.meta.env?.VITE_STORACHA_RECEIPTS_URL;
+    if (!uploadUrl?.trim() || !serviceDid?.trim()) {
+      return {};
+    }
+    const serviceURL = new URL(uploadUrl.trim());
+    const principal = DID.parse(serviceDid.trim());
+    const connectOptions = {
+      id: principal,
+      codec: CAR.outbound,
+      channel: HTTP.open({
+        url: serviceURL,
+        method: 'POST',
+      }),
+    };
+    const conn = ucantoClient.connect(connectOptions);
+    const receiptsEndpoint = receiptsRaw?.trim()
+      ? new URL(receiptsRaw.trim())
+      : new URL('receipt/', serviceURL);
+    return {
+      serviceConf: {
+        access: conn,
+        upload: conn,
+        filecoin: conn,
+        gateway: conn,
+      },
+      receiptsEndpoint,
+    };
+  } catch (err) {
+    console.warn('[storacha] Optional local service config skipped:', err?.message ?? err);
+    return {};
+  }
+}
 
 /**
  * Create a Storacha client using a UCAN principal and delegation proof.
@@ -27,7 +73,8 @@ export async function createStorachaClient(principal, delegation) {
   console.log('[storacha] Creating client with UCAN principal...');
 
   const store = new StoreMemory();
-  const client = await Client.create({ principal, store });
+  const envOpts = getOptionalStorachaClientEnvOptions();
+  const client = await Client.create({ principal, store, ...envOpts });
 
   // Add space from delegation
   const space = await client.addSpace(delegation);
