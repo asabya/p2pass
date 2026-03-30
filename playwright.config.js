@@ -13,7 +13,7 @@ export default defineConfig({
   workers: 1,
   projects: [
     {
-      name: 'e2e-relay',
+      name: 'e2e',
       testDir: './e2e',
       testMatch: '**/*.spec.js',
       use: {
@@ -27,7 +27,7 @@ export default defineConfig({
     },
     {
       name: 'widget',
-      testDir: './tests',
+      testDir: './e2e',
       testMatch: '**/*.e2e.test.js',
       use: {
         ...devices['Desktop Chrome'],
