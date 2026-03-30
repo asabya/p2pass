@@ -31,6 +31,6 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      # playwright.config.js defines projects "e2e" and "widget" (not "chromium").
+      # Uses playwright.config.js reporters on GITHUB_ACTIONS: github + line (do not pass only --reporter=github — it hides per-test lines).
       - name: Run Playwright E2E suite
-        run: npm run test:e2e -- --reporter=github
+        run: npm run test:e2e
