@@ -34,6 +34,7 @@ const stack = await setupP2PStack(credential, { libp2p });
 ## libp2p Configuration
 
 The library configures libp2p with:
+
 - **Transports**: WebSockets, WebRTC
 - **Encryption**: Noise
 - **Multiplexing**: Yamux
@@ -44,12 +45,12 @@ The library configures libp2p with:
 
 An OrbitDB keyvalue database stores device information with key prefixes:
 
-| Prefix | Content |
-|--------|---------|
-| *(none)* | Device entries (credential_id, device_label, ed25519_did) |
-| `delegation:` | UCAN proof strings |
-| `archive:` | Encrypted Ed25519 key archives |
-| `keypair:` | DID public key metadata |
+| Prefix        | Content                                                   |
+| ------------- | --------------------------------------------------------- |
+| _(none)_      | Device entries (credential_id, device_label, ed25519_did) |
+| `delegation:` | UCAN proof strings                                        |
+| `archive:`    | Encrypted Ed25519 key archives                            |
+| `keypair:`    | DID public key metadata                                   |
 
 The registry access controller includes both `orbitdb.identity.id` and the owner DID.
 

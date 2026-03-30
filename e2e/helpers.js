@@ -292,7 +292,11 @@ export async function getLinkPayloadJsonForE2e(page) {
     .poll(
       async () => {
         payload = await page.evaluate(() => {
-          const api = globalThis.__p2passE2E;
+          const w =
+            /** @type {typeof globalThis & { __p2passE2E?: { getPeerInfo?: () => { peerId?: string; multiaddrs?: string[] } } }} */ (
+              globalThis
+            );
+          const api = w.__p2passE2E;
           if (!api?.getPeerInfo) return '';
           const info = api.getPeerInfo();
           if (!info?.peerId || !Array.isArray(info.multiaddrs) || info.multiaddrs.length === 0) {

@@ -87,7 +87,7 @@ export async function parseDelegation(proofString) {
 
     throw new Error(result.error?.message || 'Delegation extraction failed');
   } catch (err) {
-    throw new Error(`Failed to parse delegation: ${err.message}`);
+    throw new Error(`Failed to parse delegation: ${err.message}`, { cause: err });
   }
 }
 
@@ -259,8 +259,7 @@ export async function formatDelegationsTooltipSummary(entries) {
     const e = entries[i];
     const raw = e?.delegation;
     if (typeof raw !== 'string' || !raw.trim()) continue;
-    let head =
-      entries.length > 1 ? `Delegation ${i + 1} of ${entries.length}` : 'UCAN delegation';
+    let head = entries.length > 1 ? `Delegation ${i + 1} of ${entries.length}` : 'UCAN delegation';
     if (e.space_did) head += ` · Space ${truncateMiddle(e.space_did, 40)}`;
     if (e.label && e.label !== 'default') head += ` · ${e.label}`;
     try {

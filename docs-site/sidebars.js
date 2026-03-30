@@ -6,19 +6,12 @@ const sidebars = {
     {
       type: 'category',
       label: 'Architecture',
-      items: [
-        'architecture/identity',
-        'architecture/p2p-stack',
-        'architecture/storacha-backup',
-      ],
+      items: ['architecture/identity', 'architecture/p2p-stack', 'architecture/storacha-backup'],
     },
     {
       type: 'category',
       label: 'Guides',
-      items: [
-        'guides/react-wrapper',
-        'guides/device-linking',
-      ],
+      items: ['guides/react-wrapper', 'guides/device-linking'],
     },
     'api-reference',
   ],

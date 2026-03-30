@@ -32,7 +32,7 @@ import {
   parseDelegation,
   storeDelegation,
   loadStoredDelegation,
-  clearStoredDelegation
+  clearStoredDelegation,
 } from 'p2pass';
 ```
 
@@ -60,13 +60,14 @@ const result = await bridge.restoreFromSpace(orbitdb, {
   timeout: 120000,
   preferredDatabaseName: 'my-db',
   restartAfterRestore: true,
-  verifyIntegrity: true
+  verifyIntegrity: true,
 });
 ```
 
 ## IPNS Recovery Manifest
 
 After backup, an IPNS manifest is published containing:
+
 - `registryAddress` — OrbitDB registry address
 - `delegation` — UCAN delegation string
 - `ownerDid` — The user's Ed25519 DID
@@ -78,7 +79,7 @@ import {
   publishManifest,
   resolveManifest,
   uploadArchiveToIPFS,
-  fetchArchiveFromIPFS
+  fetchArchiveFromIPFS,
 } from 'p2pass';
 ```
 

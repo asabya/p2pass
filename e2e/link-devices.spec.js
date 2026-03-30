@@ -1,9 +1,5 @@
 import { test, expect } from '@playwright/test';
-import {
-  addVirtualWebAuthn,
-  createPasskeyAndOpenP2PTab,
-  pairBobWithAlice,
-} from './helpers.js';
+import { addVirtualWebAuthn, createPasskeyAndOpenP2PTab, pairBobWithAlice } from './helpers.js';
 
 const signingMode = /** @type {'hardware-ed25519' | 'hardware-p256' | 'worker'} */ (
   process.env.E2E_SIGNING_MODE || 'worker'

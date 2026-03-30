@@ -67,7 +67,7 @@ export async function initializeStorachaClientWithUCAN(ucanToken, recipientKey) 
 export async function listSpaces(client) {
   const currentSpace = client.currentSpace();
   if (currentSpace) {
-    let registered = false;
+    let registered;
     try {
       registered =
         typeof currentSpace.registered === 'function' ? currentSpace.registered() : false;

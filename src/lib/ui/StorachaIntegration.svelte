@@ -450,12 +450,7 @@
 
     if (store) {
       const spaceDid = storeSpaceDid || client.currentSpace()?.did?.() || '';
-      await storeDelegation(
-        delegationStr,
-        storeRegistryDb,
-        spaceDid,
-        signingMode?.did || ''
-      );
+      await storeDelegation(delegationStr, storeRegistryDb, spaceDid, signingMode?.did || '');
     }
 
     currentSpace = client.currentSpace();
@@ -865,13 +860,7 @@
           await storeArchiveEntry(newDb, did, archive.ciphertext, archive.iv);
         }
         for (const d of delegations) {
-          await storeDelegationEntry(
-            newDb,
-            d.delegation,
-            d.space_did,
-            d.label,
-            d.stored_by_did
-          );
+          await storeDelegationEntry(newDb, d.delegation, d.space_did, d.label, d.stored_by_did);
         }
         console.log('[ui] Registry migration complete after', Date.now() - start, 'ms');
         return true;
@@ -1770,8 +1759,8 @@
                 <span
                   style="font-size: 0.65rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.35;"
                 >
-                  Optional. Used for user.id (and display name) when creating a new passkey. Leave blank for an
-                  anonymous default.
+                  Optional. Used for user.id (and display name) when creating a new passkey. Leave
+                  blank for an anonymous default.
                 </span>
               </label>
             {/if}
@@ -2205,69 +2194,43 @@
             {@render storachaConnectedBanner()}
             <!-- Action Buttons -->
             <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button
-              class="storacha-btn-backup"
-              onclick={handleBackup}
-              disabled={isLoading || (!registryDb && entryCount === 0)}
-              style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #FFC83F; padding: 0.5rem 1rem; font-weight: 700; color: #111827; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; opacity: {isLoading ||
-              (!registryDb && entryCount === 0)
-                ? '0.5'
-                : '1'}; box-sizing: border-box;"
-            >
-              <Upload style="height: 1rem; width: 1rem;" />
-              <span>Backup to Storacha</span>
-            </button>
-
-            <button
-              class="storacha-btn-restore"
-              onclick={restoreFromSpaceFallback}
-              disabled={isLoading || !isInitialized}
-              style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #0176CE; padding: 0.5rem 1rem; font-weight: 700; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; opacity: {isLoading ||
-              !isInitialized
-                ? '0.5'
-                : '1'}; box-sizing: border-box;"
-              title="Restore database from Storacha backup"
-            >
-              <Download style="height: 1rem; width: 1rem;" />
-              <span>Restore from Storacha</span>
-            </button>
-          </div>
-
-          <!-- Space Usage Information -->
-          <div
-            style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
-          >
-            <div
-              style="margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;"
-            >
-              <h4
-                style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; margin: 0;"
+              <button
+                class="storacha-btn-backup"
+                onclick={handleBackup}
+                disabled={isLoading || (!registryDb && entryCount === 0)}
+                style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #FFC83F; padding: 0.5rem 1rem; font-weight: 700; color: #111827; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; opacity: {isLoading ||
+                (!registryDb && entryCount === 0)
+                  ? '0.5'
+                  : '1'}; box-sizing: border-box;"
               >
-                <svg
-                  style="height: 1rem; width: 1rem;"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <span>Storage Analytics</span>
-              </h4>
-              <div style="display: flex; align-items: center; gap: 0.25rem;">
-                <button
-                  class="storacha-btn-icon"
-                  onclick={loadSpaceUsage}
-                  disabled={isLoading}
-                  style="border-radius: 0.375rem; padding: 0.5rem; color: #E91315; transition: all 300ms; border: none; background: transparent; cursor: pointer; opacity: {isLoading
-                    ? '0.5'
-                    : '1'};"
-                  title="Refresh space usage"
-                  aria-label="Refresh space usage"
+                <Upload style="height: 1rem; width: 1rem;" />
+                <span>Backup to Storacha</span>
+              </button>
+
+              <button
+                class="storacha-btn-restore"
+                onclick={restoreFromSpaceFallback}
+                disabled={isLoading || !isInitialized}
+                style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #0176CE; padding: 0.5rem 1rem; font-weight: 700; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; opacity: {isLoading ||
+                !isInitialized
+                  ? '0.5'
+                  : '1'}; box-sizing: border-box;"
+                title="Restore database from Storacha backup"
+              >
+                <Download style="height: 1rem; width: 1rem;" />
+                <span>Restore from Storacha</span>
+              </button>
+            </div>
+
+            <!-- Space Usage Information -->
+            <div
+              style="border-radius: 0.375rem; border: 1px solid #E91315; background: linear-gradient(to bottom right, #ffffff, #FFE4AE); padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
+            >
+              <div
+                style="margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;"
+              >
+                <h4
+                  style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #E91315; font-family: 'Epilogue', sans-serif; margin: 0;"
                 >
                   <svg
                     style="height: 1rem; width: 1rem;"
@@ -2279,22 +2242,21 @@
                       stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
                   </svg>
-                </button>
-                {#if spaceUsage && spaceUsage.totalFiles <= 50 && !spaceUsage.analyzed}
+                  <span>Storage Analytics</span>
+                </h4>
+                <div style="display: flex; align-items: center; gap: 0.25rem;">
                   <button
                     class="storacha-btn-icon"
-                    onclick={async () => {
-                      spaceUsage = await getSpaceUsage(client, true);
-                    }}
+                    onclick={loadSpaceUsage}
                     disabled={isLoading}
-                    style="border-radius: 0.375rem; padding: 0.5rem; color: #0176CE; transition: all 300ms; border: none; background: transparent; cursor: pointer; opacity: {isLoading
+                    style="border-radius: 0.375rem; padding: 0.5rem; color: #E91315; transition: all 300ms; border: none; background: transparent; cursor: pointer; opacity: {isLoading
                       ? '0.5'
                       : '1'};"
-                    title="Analyze file types"
-                    aria-label="Analyze file types"
+                    title="Refresh space usage"
+                    aria-label="Refresh space usage"
                   >
                     <svg
                       style="height: 1rem; width: 1rem;"
@@ -2306,124 +2268,153 @@
                         stroke-linecap="round"
                         stroke-linejoin="round"
                         stroke-width="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                       />
                     </svg>
                   </button>
-                {/if}
-              </div>
-            </div>
-
-            {#if spaceUsage}
-              <div
-                style="margin-bottom: 1rem; border-radius: 0.25rem; border: 1px solid #E91315; background: linear-gradient(to right, #EFE3F3, #ffffff); padding: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
-              >
-                <div
-                  style="display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem;"
-                >
-                  <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <div
-                      style="display: flex; height: 1.5rem; width: 1.5rem; align-items: center; justify-content: center; border-radius: 9999px; background-color: #E91315; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
+                  {#if spaceUsage && spaceUsage.totalFiles <= 50 && !spaceUsage.analyzed}
+                    <button
+                      class="storacha-btn-icon"
+                      onclick={async () => {
+                        spaceUsage = await getSpaceUsage(client, true);
+                      }}
+                      disabled={isLoading}
+                      style="border-radius: 0.375rem; padding: 0.5rem; color: #0176CE; transition: all 300ms; border: none; background: transparent; cursor: pointer; opacity: {isLoading
+                        ? '0.5'
+                        : '1'};"
+                      title="Analyze file types"
+                      aria-label="Analyze file types"
                     >
-                      <span
-                        style="font-size: 0.75rem; font-weight: 700; color: #ffffff; font-family: 'DM Mono', monospace;"
-                        >{spaceUsage.totalFiles}</span
+                      <svg
+                        style="height: 1rem; width: 1rem;"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </button>
+                  {/if}
+                </div>
+              </div>
+
+              {#if spaceUsage}
+                <div
+                  style="margin-bottom: 1rem; border-radius: 0.25rem; border: 1px solid #E91315; background: linear-gradient(to right, #EFE3F3, #ffffff); padding: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
+                >
+                  <div
+                    style="display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem;"
+                  >
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <div
+                        style="display: flex; height: 1.5rem; width: 1.5rem; align-items: center; justify-content: center; border-radius: 9999px; background-color: #E91315; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);"
+                      >
+                        <span
+                          style="font-size: 0.75rem; font-weight: 700; color: #ffffff; font-family: 'DM Mono', monospace;"
+                          >{spaceUsage.totalFiles}</span
+                        >
+                      </div>
+                      <span
+                        style="font-weight: 500; color: #1f2937; font-family: 'DM Sans', sans-serif;"
+                      >
+                        file{spaceUsage.totalFiles !== 1 ? 's' : ''} stored
+                      </span>
                     </div>
-                    <span
-                      style="font-weight: 500; color: #1f2937; font-family: 'DM Sans', sans-serif;"
-                    >
-                      file{spaceUsage.totalFiles !== 1 ? 's' : ''} stored
-                    </span>
+                    {#if spaceUsage.lastUploadDate}
+                      <div
+                        style="color: #0176CE; font-family: 'DM Mono', monospace; font-size: 0.75rem;"
+                      >
+                        Last upload: {formatRelativeTime(spaceUsage.lastUploadDate)}
+                      </div>
+                    {/if}
                   </div>
-                  {#if spaceUsage.lastUploadDate}
+
+                  {#if spaceUsage.totalFiles > 0}
                     <div
-                      style="color: #0176CE; font-family: 'DM Mono', monospace; font-size: 0.75rem;"
+                      style="margin-top: 0.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; font-size: 0.75rem;"
                     >
-                      Last upload: {formatRelativeTime(spaceUsage.lastUploadDate)}
+                      {#if spaceUsage.backupFiles > 0}
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                          <div
+                            style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background-color: #FFC83F;"
+                          ></div>
+                          <span style="color: #374151; font-family: 'DM Sans', sans-serif;">
+                            {spaceUsage.backupFiles} backup{spaceUsage.backupFiles !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      {/if}
+                      {#if spaceUsage.blockFiles > 0}
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                          <div
+                            style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background-color: #0176CE;"
+                          ></div>
+                          <span style="color: #374151; font-family: 'DM Sans', sans-serif;">
+                            {spaceUsage.blockFiles} data block{spaceUsage.blockFiles !== 1
+                              ? 's'
+                              : ''}
+                          </span>
+                        </div>
+                      {/if}
+                      {#if spaceUsage.otherFiles > 0}
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                          <div
+                            style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background-color: #E91315;"
+                          ></div>
+                          <span style="color: #374151; font-family: 'DM Sans', sans-serif;">
+                            {spaceUsage.otherFiles} other
+                          </span>
+                        </div>
+                      {/if}
+                    </div>
+
+                    <div
+                      style="margin-top: 0.5rem; font-size: 0.75rem; color: #4b5563; font-family: 'DM Sans', sans-serif;"
+                    >
+                      {#if spaceUsage.oldestUploadDate && spaceUsage.oldestUploadDate !== spaceUsage.lastUploadDate}
+                        <div style="color: #0176CE; font-family: 'DM Mono', monospace;">
+                          Oldest upload: {formatRelativeTime(spaceUsage.oldestUploadDate)}
+                        </div>
+                      {/if}
+                      <em style="color: #6b7280;">Note: Each backup creates many data blocks</em>
                     </div>
                   {/if}
                 </div>
-
-                {#if spaceUsage.totalFiles > 0}
-                  <div
-                    style="margin-top: 0.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; font-size: 0.75rem;"
-                  >
-                    {#if spaceUsage.backupFiles > 0}
-                      <div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <div
-                          style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background-color: #FFC83F;"
-                        ></div>
-                        <span style="color: #374151; font-family: 'DM Sans', sans-serif;">
-                          {spaceUsage.backupFiles} backup{spaceUsage.backupFiles !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    {/if}
-                    {#if spaceUsage.blockFiles > 0}
-                      <div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <div
-                          style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background-color: #0176CE;"
-                        ></div>
-                        <span style="color: #374151; font-family: 'DM Sans', sans-serif;">
-                          {spaceUsage.blockFiles} data block{spaceUsage.blockFiles !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    {/if}
-                    {#if spaceUsage.otherFiles > 0}
-                      <div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <div
-                          style="height: 0.5rem; width: 0.5rem; border-radius: 9999px; background-color: #E91315;"
-                        ></div>
-                        <span style="color: #374151; font-family: 'DM Sans', sans-serif;">
-                          {spaceUsage.otherFiles} other
-                        </span>
-                      </div>
-                    {/if}
-                  </div>
-
-                  <div
-                    style="margin-top: 0.5rem; font-size: 0.75rem; color: #4b5563; font-family: 'DM Sans', sans-serif;"
-                  >
-                    {#if spaceUsage.oldestUploadDate && spaceUsage.oldestUploadDate !== spaceUsage.lastUploadDate}
-                      <div style="color: #0176CE; font-family: 'DM Mono', monospace;">
-                        Oldest upload: {formatRelativeTime(spaceUsage.oldestUploadDate)}
-                      </div>
-                    {/if}
-                    <em style="color: #6b7280;">Note: Each backup creates many data blocks</em>
-                  </div>
-                {/if}
-              </div>
-            {:else if spaceUsage === null && isLoggedIn}
-              <div
-                style="margin-bottom: 1rem; border-radius: 0.25rem; border: 1px solid #E91315; background: linear-gradient(to right, #EFE3F3, #FFE4AE); padding: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
-              >
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <div
-                    style="display: flex; height: 1.25rem; width: 1.25rem; align-items: center; justify-content: center; border-radius: 9999px; background-color: #E91315; flex-shrink: 0;"
-                  >
-                    <svg
-                      style="height: 0.75rem; width: 0.75rem; color: #ffffff;"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+              {:else if spaceUsage === null && isLoggedIn}
+                <div
+                  style="margin-bottom: 1rem; border-radius: 0.25rem; border: 1px solid #E91315; background: linear-gradient(to right, #EFE3F3, #FFE4AE); padding: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);"
+                >
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div
+                      style="display: flex; height: 1.25rem; width: 1.25rem; align-items: center; justify-content: center; border-radius: 9999px; background-color: #E91315; flex-shrink: 0;"
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div
-                    style="font-size: 0.875rem; font-weight: 500; color: #E91315; font-family: 'DM Sans', sans-serif;"
-                  >
-                    Space usage information unavailable
+                      <svg
+                        style="height: 0.75rem; width: 0.75rem; color: #ffffff;"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div
+                      style="font-size: 0.875rem; font-weight: 500; color: #E91315; font-family: 'DM Sans', sans-serif;"
+                    >
+                      Space usage information unavailable
+                    </div>
                   </div>
                 </div>
-              </div>
-            {/if}
-          </div>
+              {/if}
+            </div>
           </div>
         {/if}
 

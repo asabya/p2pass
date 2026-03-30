@@ -239,7 +239,8 @@ async function openLinkDeviceStreamPeerIdOnly(libp2p, peerId) {
     } catch (e) {
       throw new Error(
         `Could not dial Device A from peer store: ${e.message}. ` +
-          'Wait until both sides show a P2P connection, or paste peer info including multiaddrs.'
+          'Wait until both sides show a P2P connection, or paste peer info including multiaddrs.',
+        { cause: e }
       );
     }
     return await newLinkDeviceStreamWithRetry(libp2p, peerId, connection);
@@ -579,7 +580,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
         connection = await dialPairingSequential(libp2p, forDial);
       } catch (e) {
         console.error('[pairing] All dial attempts failed. Last error:', e?.name, e?.message);
-        throw new Error(`Failed to dial Device A: ${e.message}`);
+        throw new Error(`Failed to dial Device A: ${e.message}`, { cause: e });
       }
 
       const remoteStr = connection.remotePeer.toString();
@@ -596,7 +597,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
         console.log('[pairing] Link-device stream ready');
       } catch (e) {
         console.error('[pairing] link-device stream failed (dial OK):', e?.name, e?.message);
-        throw new Error(`Failed to open link-device stream: ${e.message}`);
+        throw new Error(`Failed to open link-device stream: ${e.message}`, { cause: e });
       }
     } catch (e) {
       if (
@@ -606,7 +607,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
         throw e;
       }
       console.error('[pairing] Pairing transport error:', e?.message);
-      throw new Error(`Failed to connect to Device A: ${e.message}`);
+      throw new Error(`Failed to connect to Device A: ${e.message}`, { cause: e });
     }
   } else {
     try {
@@ -617,7 +618,8 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
       throw new Error(
         e.message?.startsWith('Could not dial Device A')
           ? e.message
-          : `Failed to open link-device stream: ${e.message}`
+          : `Failed to open link-device stream: ${e.message}`,
+        { cause: e }
       );
     }
   }

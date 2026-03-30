@@ -5,6 +5,7 @@
 Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
 
 Drop in `<StorachaFab />` (or the **`P2Pass`** named export — same component) and get:
+
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
 - OrbitDB backup/restore with progress tracking
@@ -25,12 +26,7 @@ npm install @le-space/p2pass
   import { StorachaFab } from '@le-space/p2pass';
 </script>
 
-<StorachaFab
-  {orbitdb}
-  {libp2p}
-  onAuthenticate={handleAuthenticate}
-  preferWorkerMode={true}
-/>
+<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
 ```
 
 The component handles everything internally:

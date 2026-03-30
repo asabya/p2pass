@@ -66,11 +66,12 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
   test('(b) cleared local cache + reload: Recover via IPNS (requires Storacha delegation env)', async ({
     browser,
   }, testInfo) => {
-    const delegation = process.env.E2E_STORACHA_DELEGATION?.trim();
+    const delegationRaw = process.env.E2E_STORACHA_DELEGATION?.trim();
     test.skip(
-      !delegation,
+      !delegationRaw,
       'Set E2E_STORACHA_DELEGATION (env or GitHub Actions secret) to a valid Storacha UCAN delegation, or run: npm run test:e2e:recovery-ipns with that env set'
     );
+    const delegation = /** @type {string} */ (delegationRaw);
 
     const baseURL = testInfo.project.use.baseURL?.replace(/\/$/, '') || 'http://localhost:5173';
     const ctx = await browser.newContext({

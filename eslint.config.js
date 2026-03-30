@@ -3,14 +3,9 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 
 export default [
-	{
-		ignores: [
-			'**/dist/**',
-			'**/node_modules/**',
-			'.svelte-kit/**',
-			'coverage/**',
-		],
-	},
+  {
+    ignores: ['**/dist/**', '**/node_modules/**', '.svelte-kit/**', 'coverage/**'],
+  },
   js.configs.recommended,
   ...svelte.configs['flat/recommended'],
   {

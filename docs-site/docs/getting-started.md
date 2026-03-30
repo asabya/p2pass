@@ -66,18 +66,18 @@ The React wrapper is less tested than the native Svelte component. For the most 
 
 ## Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `orbitdb` | `object` | `null` | OrbitDB instance |
-| `database` | `object` | `null` | Current OrbitDB database |
-| `isInitialized` | `boolean` | `false` | Whether OrbitDB is ready |
-| `entryCount` | `number` | `0` | Number of entries in database |
-| `databaseName` | `string` | `'restored-db'` | Name for restored databases |
-| `onRestore` | `function` | `() => {}` | Called when restore completes |
-| `onBackup` | `function` | `() => {}` | Called when backup completes |
-| `onAuthenticate` | `function` | `() => {}` | Called after passkey auth (awaited) |
-| `libp2p` | `object` | `null` | libp2p instance for P2P |
-| `preferWorkerMode` | `boolean` | `false` | Use worker Ed25519 instead of hardware |
+| Prop               | Type       | Default         | Description                            |
+| ------------------ | ---------- | --------------- | -------------------------------------- |
+| `orbitdb`          | `object`   | `null`          | OrbitDB instance                       |
+| `database`         | `object`   | `null`          | Current OrbitDB database               |
+| `isInitialized`    | `boolean`  | `false`         | Whether OrbitDB is ready               |
+| `entryCount`       | `number`   | `0`             | Number of entries in database          |
+| `databaseName`     | `string`   | `'restored-db'` | Name for restored databases            |
+| `onRestore`        | `function` | `() => {}`      | Called when restore completes          |
+| `onBackup`         | `function` | `() => {}`      | Called when backup completes           |
+| `onAuthenticate`   | `function` | `() => {}`      | Called after passkey auth (awaited)    |
+| `libp2p`           | `object`   | `null`          | libp2p instance for P2P                |
+| `preferWorkerMode` | `boolean`  | `false`         | Use worker Ed25519 instead of hardware |
 
 For React wrappers, use these ref methods for live service updates:
 
@@ -117,12 +117,7 @@ For the full experience with P2P connectivity:
   }
 </script>
 
-<P2Pass
-  {orbitdb}
-  {libp2p}
-  preferWorkerMode={true}
-  onAuthenticate={handleAuthenticate}
-/>
+<P2Pass {orbitdb} {libp2p} preferWorkerMode={true} onAuthenticate={handleAuthenticate} />
 ```
 
 ## Vite Configuration
@@ -138,12 +133,12 @@ export default {
   plugins: [
     svelte(),
     nodePolyfills({
-      include: ['buffer', 'process', 'stream', 'util', 'events', 'path']
-    })
+      include: ['buffer', 'process', 'stream', 'util', 'events', 'path'],
+    }),
   ],
   optimizeDeps: {
-    exclude: ['@le-space/orbitdb-identity-provider-webauthn-did']
+    exclude: ['@le-space/orbitdb-identity-provider-webauthn-did'],
   },
-  worker: { format: 'es' }
+  worker: { format: 'es' },
 };
 ```

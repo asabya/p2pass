@@ -124,7 +124,11 @@ function attachPeerDiscoveryAutoDial(libp2p, { enablePeerConnections = true } = 
             : undefined;
         await libp2p.dial(remotePeerId, signal ? { signal } : {});
       } catch (err) {
-        console.warn('[p2p] peer:discovery dial failed:', remotePeerId.toString(), err?.message || err);
+        console.warn(
+          '[p2p] peer:discovery dial failed:',
+          remotePeerId.toString(),
+          err?.message || err
+        );
       }
     })();
   });
