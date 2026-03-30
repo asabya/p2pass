@@ -133,7 +133,7 @@ const relayProcess = spawn(process.execPath, [relayCli], {
     HTTP_PORT: RELAY.HTTP,
     METRICS_PORT: RELAY.HTTP,
     DATASTORE_PATH: datastore,
-    PUBSUB_TOPICS: 'p2p-passkeys._peer-discovery._p2p._pubsub',
+    PUBSUB_TOPICS: 'p2pass._peer-discovery._p2p._pubsub',
     RELAY_DISABLE_WEBRTC: 'true',
     STRUCTURED_LOGS: 'false',
     ENABLE_GENERAL_LOGS: 'true',
@@ -199,12 +199,33 @@ await new Promise((resolvePromise, reject) => {
   });
 });
 
+/** In-memory Storacha (upload-api + delegation helper) — same pattern as ucan-upload-wall. */
+let stopStorachaE2e = null;
 const env = {
   ...process.env,
   NODE_ENV: 'development',
   VITE_BOOTSTRAP_PEERS: bootstrap,
-  VITE_PUBSUB_TOPICS: 'p2p-passkeys._peer-discovery._p2p._pubsub',
+  VITE_PUBSUB_TOPICS: 'p2pass._peer-discovery._p2p._pubsub',
 };
+
+if (process.env.E2E_USE_PRODUCTION_STORACHA !== '1') {
+  const { startStorachaE2eStack, stopStorachaE2eStack } = await import(
+    new URL('../e2e/storacha-e2e-bootstrap.mjs', import.meta.url).href
+  );
+  const meta = await startStorachaE2eStack();
+  stopStorachaE2e = stopStorachaE2eStack;
+  env.VITE_STORACHA_UPLOAD_URL = meta.uploadUrl;
+  env.VITE_STORACHA_SERVICE_DID = meta.serviceDid;
+  env.VITE_STORACHA_RECEIPTS_URL = meta.receiptsUrl;
+  /** Skip real w3name + w3s.link; `src/lib/recovery/manifest.js` uses localStorage for manifest + archive CIDs. */
+  env.VITE_RECOVERY_MOCK_IPNS = '1';
+  console.log(
+    '[e2e] In-memory Storacha upload-api:',
+    meta.uploadUrl,
+    '— delegation helper:',
+    meta.delegationHelperUrl
+  );
+}
 
 const vite = spawn(
   process.execPath,
@@ -232,6 +253,10 @@ function shutdown() {
   } catch {
     /* ignore */
   }
+  if (stopStorachaE2e) {
+    stopStorachaE2e().catch(() => {});
+    stopStorachaE2e = null;
+  }
 }
 
 process.on('SIGTERM', shutdown);
@@ -243,11 +268,19 @@ vite.on('error', (err) => {
   process.exit(1);
 });
 
-vite.on('exit', (code, signal) => {
+vite.on('exit', async (code, signal) => {
   try {
     relayProcess.kill('SIGTERM');
   } catch {
     /* ignore */
+  }
+  if (stopStorachaE2e) {
+    try {
+      await stopStorachaE2e();
+    } catch {
+      /* ignore */
+    }
+    stopStorachaE2e = null;
   }
   if (signal) process.kill(process.pid, signal);
   process.exit(code ?? 0);

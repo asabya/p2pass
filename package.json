@@ -1,17 +1,17 @@
 {
-  "name": "@le-space/p2pass",
+  "name": "p2pass",
   "version": "0.3.2",
   "type": "module",
   "description": "P2Pass — peer-to-peer passkeys, UCANs, OrbitDB registry sync, and Storacha backup (Svelte)",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/asabya/p2p-passkeys.git"
+    "url": "git+https://github.com/asabya/p2pass.git"
   },
   "bugs": {
-    "url": "https://github.com/asabya/p2p-passkeys/issues"
+    "url": "https://github.com/asabya/p2pass/issues"
   },
-  "homepage": "https://github.com/asabya/p2p-passkeys#readme",
+  "homepage": "https://github.com/asabya/p2pass#readme",
   "publishConfig": {
     "access": "public"
   },
@@ -23,10 +23,9 @@
     "dev:react": "vite --config examples/react/vite.config.js",
     "build:react": "vite build --config examples/react/vite.config.js",
     "build:docs": "cd docs-site && npm run build && rm -rf ../docs/guide && cp -r build ../docs/guide",
-    "build:demo": "BASE_URL=/p2p-passkeys/demo/ vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir",
-    "kill:dev": "bash scripts/kill-relay-and-vite.sh",
+    "build:demo": "BASE_URL=/p2pass/demo/ vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir",
     "test:e2e": "playwright test",
-    "test:e2e:recovery-ipns": "playwright test e2e/recovery-worker.spec.js -g \"(b)\"",
+    "test:e2e:recovery-ipns": "playwright test e2e/recovery-worker.spec.js -g \"(b-ipns)\"",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed --project=chromium",
     "test": "vitest run",
@@ -91,11 +90,17 @@
   ],
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@ipld/car": "^5.4.2",
+    "@libp2p/kad-dht": "^15.1.11",
+    "@libp2p/tcp": "^10.1.19",
     "@playwright/test": "^1.58.2",
+    "@storacha/did-mailto": "^1.0.2",
+    "@storacha/upload-api": "^3.2.3",
     "@sveltejs/package": "^2.3.10",
     "@sveltejs/vite-plugin-svelte": "^6.1.4",
     "@tailwindcss/vite": "^4.1.17",
     "@vitejs/plugin-react": "^4.3.0",
+    "@web3-storage/sigv4": "^1.0.2",
     "eslint": "^10.1.0",
     "eslint-plugin-svelte": "^3.16.0",
     "globals": "^17.4.0",

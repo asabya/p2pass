@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import {
   addVirtualWebAuthn,
@@ -10,6 +13,7 @@ import {
 } from './helpers.js';
 
 const WORKER = /** @type {const} */ ('worker');
+const E2E_DIR = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Requires the default Playwright webServer (`scripts/e2e-with-relay.mjs` + Vite). Do not use
@@ -63,13 +67,132 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
     await bob.close();
   });
 
-  test('(b) cleared local cache + reload: Recover via IPNS (requires Storacha delegation env)', async ({
+  /**
+   * In-memory upload-api (see `e2e/local-storacha-api`, `storacha-e2e-bootstrap.mjs`) + Vite
+   * `VITE_STORACHA_*` — same pattern as ucan-upload-wall. Mints a UCAN for the post-auth DID and
+   * checks Storacha connects without production credentials.
+   */
+  test('(b-inmemory) mint UCAN + import: Storacha connects against local upload-api', async ({
+    browser,
+  }, testInfo) => {
+    const storachaMetaPath = join(E2E_DIR, '.storacha-e2e.json');
+    test.skip(
+      !existsSync(storachaMetaPath),
+      'Run Playwright with scripts/e2e-with-relay.mjs (writes e2e/.storacha-e2e.json)'
+    );
+
+    const baseURL = testInfo.project.use.baseURL?.replace(/\/$/, '') || 'http://localhost:5173';
+    const ctx = await browser.newContext({
+      baseURL,
+      permissions: ['clipboard-read', 'clipboard-write'],
+    });
+    const page = await ctx.newPage();
+
+    await addVirtualWebAuthn(ctx, page, { signingPreference: WORKER });
+    await createPasskeyAndOpenP2PTab(page, {
+      signingPreference: WORKER,
+      passkeyUserLabel: 'e2e-inmemory-storacha',
+    });
+
+    const meta = JSON.parse(readFileSync(storachaMetaPath, 'utf8'));
+    const audienceDid = await page
+      .getByTestId('storacha-your-did')
+      .getAttribute('data-storacha-did-full');
+    if (!audienceDid?.startsWith('did:')) {
+      throw new Error('Missing data-storacha-did-full');
+    }
+    const res = await fetch(`${meta.delegationHelperUrl}/delegation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audienceDid }),
+    });
+    if (!res.ok) {
+      throw new Error(`delegation helper: ${res.status} ${await res.text()}`);
+    }
+    const { delegation } = await res.json();
+    await importStorachaDelegationForE2e(page, delegation);
+
+    await ctx.close();
+  });
+
+  /**
+   * Full IPNS-shaped recovery with `VITE_RECOVERY_MOCK_IPNS=1`: UCAN + Storacha (in-memory upload-api),
+   * publish manifest + archive via real `uploadFile`, but w3name/gateway are stubbed in localStorage.
+   * Then clear local hints and recover — same as production flow without real IPNS.
+   */
+  test('(b-ipns-mock) full path: delegation → publish → clear cache → recover via IPNS mock', async ({
+    browser,
+  }, testInfo) => {
+    const storachaMetaPath = join(E2E_DIR, '.storacha-e2e.json');
+    test.skip(
+      !existsSync(storachaMetaPath),
+      'Run Playwright with scripts/e2e-with-relay.mjs (VITE_RECOVERY_MOCK_IPNS + in-memory Storacha)'
+    );
+
+    const baseURL = testInfo.project.use.baseURL?.replace(/\/$/, '') || 'http://localhost:5173';
+    const ctx = await browser.newContext({
+      baseURL,
+      permissions: ['clipboard-read', 'clipboard-write'],
+    });
+    const page = await ctx.newPage();
+
+    await addVirtualWebAuthn(ctx, page, { signingPreference: WORKER });
+    await createPasskeyAndOpenP2PTab(page, {
+      signingPreference: WORKER,
+      passkeyUserLabel: 'e2e-ipns-mock-recovery',
+    });
+
+    const meta = JSON.parse(readFileSync(storachaMetaPath, 'utf8'));
+    const audienceDid = await page
+      .getByTestId('storacha-your-did')
+      .getAttribute('data-storacha-did-full');
+    if (!audienceDid?.startsWith('did:')) {
+      throw new Error('Missing data-storacha-did-full');
+    }
+    const res = await fetch(`${meta.delegationHelperUrl}/delegation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audienceDid }),
+    });
+    if (!res.ok) {
+      throw new Error(`delegation helper: ${res.status} ${await res.text()}`);
+    }
+    const { delegation } = await res.json();
+    await importStorachaDelegationForE2e(page, delegation);
+
+    await page.evaluate((keys) => {
+      for (const k of keys) {
+        try {
+          localStorage.removeItem(k);
+        } catch {
+          /* ignore */
+        }
+      }
+    }, E2E_LOCAL_RECOVERY_CACHE_KEYS);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    await recoverPasskeyFromPreAuth(page, { signingPreference: WORKER });
+
+    await expect(page.getByTestId('storacha-your-did').first()).toHaveAttribute(
+      'data-storacha-did-full',
+      audienceDid
+    );
+
+    await ctx.close();
+  });
+
+  /**
+   * Clears local OrbitDB/recovery hints to force the IPNS recovery path against **production**
+   * w3name + gateway. Requires `E2E_STORACHA_DELEGATION` and a published manifest.
+   */
+  test('(b-ipns) cleared local cache + reload: Recover via IPNS (requires delegation env + manifest)', async ({
     browser,
   }, testInfo) => {
     const delegationRaw = process.env.E2E_STORACHA_DELEGATION?.trim();
     test.skip(
       !delegationRaw,
-      'Set E2E_STORACHA_DELEGATION (env or GitHub Actions secret) to a valid Storacha UCAN delegation, or run: npm run test:e2e:recovery-ipns with that env set'
+      'Set E2E_STORACHA_DELEGATION to a delegation whose space has a published recovery manifest (IPNS), or run npm run test:e2e:recovery-ipns with that env'
     );
     const delegation = /** @type {string} */ (delegationRaw);
 
@@ -88,6 +211,14 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
 
     await importStorachaDelegationForE2e(page, delegation);
 
+    const expectedDid = await page
+      .getByTestId('storacha-your-did')
+      .first()
+      .getAttribute('data-storacha-did-full');
+    if (!expectedDid?.startsWith('did:')) {
+      throw new Error('Missing data-storacha-did-full before cache clear');
+    }
+
     await page.evaluate((keys) => {
       for (const k of keys) {
         try {
@@ -102,8 +233,10 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
 
     await recoverPasskeyFromPreAuth(page, { signingPreference: WORKER });
 
-    await expect(page.getByTestId('storacha-post-auth')).toBeVisible();
-    await expect(page.getByText(/Worker Ed25519/i).first()).toBeVisible();
+    await expect(page.getByTestId('storacha-your-did').first()).toHaveAttribute(
+      'data-storacha-did-full',
+      expectedDid
+    );
 
     await ctx.close();
   });
