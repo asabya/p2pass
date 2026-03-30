@@ -4,8 +4,7 @@
 
 Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
 
-Drop in `<StorachaFab />` and get:
-
+Drop in `<StorachaFab />` (or the **`P2Pass`** named export — same component) and get:
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
 - OrbitDB backup/restore with progress tracking
@@ -26,7 +25,12 @@ npm install @le-space/p2pass
   import { StorachaFab } from '@le-space/p2pass';
 </script>
 
-<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} />
+<StorachaFab
+  {orbitdb}
+  {libp2p}
+  onAuthenticate={handleAuthenticate}
+  preferWorkerMode={true}
+/>
 ```
 
 The component handles everything internally:
@@ -35,7 +39,31 @@ The component handles everything internally:
 2. Choose a **signing mode** (hardware Ed25519 with P-256 fallback, hardware P-256 only, or worker Ed25519), then **Authenticate with Passkey** → biometric prompt → DID created
 3. Two tabs appear: **P2P Passkeys** (device linking) and **Storacha** (backup/restore); P2P Passkeys is the default
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
-5. P2P Passkeys tab shows connection status, peer info, and linked devices
+5. The P2Pass tab shows connection status, peer info, and linked devices
+
+## React Usage
+
+```jsx
+import { useRef } from 'react';
+import { P2Pass } from '@le-space/p2pass/react';
+
+function App() {
+  const fabRef = useRef(null);
+
+  return <P2Pass ref={fabRef} preferWorkerMode={true} />;
+}
+```
+
+The React wrapper works, but it is less tested than the native Svelte component. If you want the most reliable integration and the best user experience, prefer the Svelte component.
+
+For React, pass plain values and callbacks as normal props, but update live service objects through the wrapper ref:
+
+```jsx
+fabRef.current?.setLibp2p(libp2p);
+fabRef.current?.setOrbitdb(orbitdb);
+fabRef.current?.setDatabase(database);
+fabRef.current?.updateServices({ libp2p, orbitdb, database });
+```
 
 ## Worker Ed25519 Passkey Flow
 
@@ -142,11 +170,11 @@ This means the same passkey on any device (via passkey sync) produces the same P
 | Hardware P-256   | High     | TPM/Secure Enclave                  | Per signature |
 | Worker Ed25519   | Medium   | Web worker + encrypted localStorage | On init only  |
 
-**Worker Ed25519** matches typical OrbitDB multi-device flows (signing key in a worker). **Hardware** modes keep private keys in the authenticator; hardware Ed25519 lists Ed25519 first and may obtain **P-256** if the device does not support hardware Ed25519. Pick the mode in the panel before authenticating, or set `signingPreference="worker"` / `preferWorkerMode` on the component.
+**Worker Ed25519** matches typical OrbitDB multi-device flows (signing key in a worker). **Hardware** modes keep private keys in the authenticator; hardware Ed25519 lists Ed25519 first and may obtain **P-256** if the device does not support hardware Ed25519. Pick the mode in the panel before authenticating, or set `signingPreference="worker"` / `preferWorkerMode` on the component. If neither is set, the component can auto-detect a reasonable default.
 
 ## Props
 
-When using `StorachaFab` or `StorachaIntegration` directly:
+When using the Svelte components directly:
 
 | Prop                | Type     | Default         | Description                                                                              |
 | ------------------- | -------- | --------------- | ---------------------------------------------------------------------------------------- |
@@ -162,15 +190,17 @@ When using `StorachaFab` or `StorachaIntegration` directly:
 | `signingPreference` | `string` | `null`          | `'hardware-ed25519'`, `'hardware-p256'`, or `'worker'` — overrides the in-panel selector |
 | `preferWorkerMode`  | boolean  | `false`         | Deprecated; same as `signingPreference="worker"`                                         |
 
+For React wrappers, `orbitdb`, `database`, and `libp2p` should be updated through the component ref instead of passed as live React props.
+
 ## Components
 
-### `StorachaFab`
+### `StorachaFab` (`P2Pass`)
 
-Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required.
+Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required. The **`P2Pass`** export is an alias for the same Svelte component.
 
-### `StorachaIntegration`
+### `StorachaIntegration` (`P2PassPanel`)
 
-The panel component itself. Can be embedded inline instead of as a floating panel.
+The panel component itself. Can be embedded inline instead of as a floating panel. **`P2PassPanel`** is a named alias.
 
 ## Programmatic API
 
@@ -204,23 +234,25 @@ const stack = await setupP2PStack(credential);
 ## Development
 
 ```bash
-npm run dev:example    # Run example app
+npm run dev:svelte     # Run the Svelte example app
 npm test               # Run unit tests
+npm run test:e2e       # Run Playwright E2E tests
+npm run test:e2e:headed
 npm run package        # Build library
 ```
 
 ### End-to-end tests
 
-Playwright drives the **example app** in Chromium with virtual WebAuthn. Tests live in `e2e/` (for example `link-devices.spec.js` for multi-device pairing).
+Playwright drives the **Svelte example app** in Chromium (with optional virtual WebAuthn where configured). Primary integration specs live in **`e2e/`** (for example `link-devices.spec.js` for multi-device pairing). The **`tests/`** directory also contains additional widget-style E2E tests; the unified Playwright config can run both suites.
 
 **Run:**
 
 ```bash
-npm run test:e2e       # headless; starts relay + Vite automatically
+npm run test:e2e       # headless; starts relay + Vite for e2e/ specs (see playwright.config.js)
 npm run test:e2e:ui    # Playwright UI mode (debugging)
 ```
 
-`playwright.config.js` starts **`scripts/e2e-with-relay.mjs`**, which:
+For `e2e/`, `playwright.config.js` starts **`scripts/e2e-with-relay.mjs`**, which:
 
 1. Launches **orbitdb-relay-pinner** (local libp2p relay).
 2. Fetches WebSocket bootstrap multiaddrs from the relay’s HTTP API and passes them to Vite as **`VITE_BOOTSTRAP_PEERS`** so browsers can connect.
@@ -245,6 +277,10 @@ Failed runs write HTML reports, screenshots, traces, and video under `test-resul
 ```bash
 E2E_SIGNING_MODE=hardware-ed25519 npm run test:e2e
 ```
+
+## CI
+
+GitHub Actions runs unit tests (Vitest) and Playwright on **pull requests and pushes**. Workflow: **`.github/workflows/tests.yml`**.
 
 ## Dependencies
 

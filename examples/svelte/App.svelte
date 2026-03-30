@@ -221,4 +221,5 @@
   onBackup={handleBackup}
   onAuthenticate={handleAuthenticate}
   {libp2p}
+  preferWorkerMode={true}
 />

@@ -211,7 +211,7 @@ const vite = spawn(
   [
     resolve(root, 'node_modules/vite/bin/vite.js'),
     '--config',
-    'example/vite.config.js',
+    'examples/svelte/vite.config.js',
     '--host',
     'localhost',
     '--port',

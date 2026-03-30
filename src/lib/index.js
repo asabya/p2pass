@@ -1,10 +1,13 @@
 // @le-space/p2pass — public API
 export const VERSION = '0.3.1';
 
-// Explicit default bindings (not `export { default as X } from`) — avoids star-export / default resolution errors in Vite.
 import StorachaIntegration from './ui/StorachaIntegration.svelte';
 import StorachaFab from './ui/StorachaFab.svelte';
+
 export { StorachaIntegration, StorachaFab };
+export { StorachaFab as P2Pass, StorachaIntegration as P2PassPanel };
+
+export { P2Pass as P2PassReact, P2PassPanel as P2PassPanelReact } from './react/index.js';
 
 // Identity
 export { IdentityService, hasLocalPasskeyHint } from './identity/identity-service.js';

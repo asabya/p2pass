@@ -8,10 +8,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  base: process.env.BASE_URL || '/',
   root: __dirname,
   // Load `.env*` from repo root so `VITE_BOOTSTRAP_PEERS` / relay URL work when not using
   // `scripts/e2e-with-relay.mjs` (e.g. `npm run dev:example` with a local relay).
-  envDir: path.resolve(__dirname, '..'),
+  envDir: path.resolve(__dirname, '../..'),
   plugins: [
     tailwindcss(),
     nodePolyfills({
@@ -21,7 +22,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@le-space/p2pass': path.resolve(__dirname, '../dist'),
+      '@le-space/p2pass': path.resolve(__dirname, '../../src/lib'),
     },
   },
   optimizeDeps: {

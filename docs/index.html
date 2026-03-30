@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P2Pass — P2P Passkey-Based DID Identities</title>
+<meta name="description" content="Drop-in Svelte component for P2P passkey-based DID identities with Storacha decentralized backup. WebAuthn + UCAN + OrbitDB.">
+<meta property="og:title" content="P2Pass — P2P Passkey-Based DID Identities">
+<meta property="og:description" content="Passkey auth, P2P sync, and decentralized backup in one component.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+.skip-link{
+  position:absolute;top:-100%;left:50%;
+  transform:translateX(-50%);
+  background:var(--accent);color:#fff;
+  padding:12px 24px;border-radius:0 0 8px 8px;
+  font-family:var(--font-body);font-size:14px;font-weight:600;
+  text-decoration:none;z-index:200;transition:top 0.2s;
+}
+.skip-link:focus{top:0}
+:focus-visible{outline:2px solid var(--accent-light);outline-offset:3px;border-radius:4px}
+a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
+:root{
+  --bg:#0c0a09;
+  --surface:rgba(28,25,23,0.7);
+  --border:rgba(233,19,21,0.08);
+  --border-hover:rgba(233,19,21,0.22);
+  --accent:#E91315;
+  --accent-light:#FFC83F;
+  --accent-glow:rgba(233,19,21,0.3);
+  --accent-subtle:rgba(233,19,21,0.08);
+  --blue:#0176CE;
+  --text:#f0ece6;
+  --text-muted:#a8a29e;
+  --text-dim:#78716c;
+  --font-display:'Epilogue',system-ui,sans-serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --font-mono:'DM Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-body);
+  line-height:1.6;overflow-x:hidden;
+  min-height:100vh;
+}
+
+/* Animated orbs */
+.orb{
+  position:fixed;border-radius:50%;
+  filter:blur(120px);opacity:0.15;
+  pointer-events:none;z-index:0;
+}
+.orb-1{width:600px;height:600px;background:var(--accent);top:-200px;left:-200px;animation:drift-1 20s ease-in-out infinite}
+.orb-2{width:500px;height:500px;background:var(--accent-light);bottom:-150px;right:-150px;animation:drift-2 25s ease-in-out infinite}
+.orb-3{width:400px;height:400px;background:var(--blue);top:40%;left:60%;animation:drift-3 22s ease-in-out infinite}
+@keyframes drift-1{0%,100%{transform:translate(0,0)}50%{transform:translate(80px,60px)}}
+@keyframes drift-2{0%,100%{transform:translate(0,0)}50%{transform:translate(-60px,-80px)}}
+@keyframes drift-3{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,50px)}}
+
+.container{max-width:1100px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+/* Nav */
+nav{
+  position:sticky;top:0;z-index:100;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  background:rgba(12,10,9,0.8);
+  border-bottom:1px solid var(--border);
+}
+.nav-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 0;
+}
+.nav-logo{
+  font-family:var(--font-display);font-weight:800;font-size:20px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;text-decoration:none;
+}
+.nav-links{display:flex;gap:24px;align-items:center}
+.nav-links a{
+  color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:500;
+  transition:color 0.2s;
+}
+.nav-links a:hover{color:var(--text)}
+
+/* Hero */
+.hero{
+  padding:120px 0 80px;text-align:center;
+}
+.hero h1{
+  font-family:var(--font-display);font-weight:800;
+  font-size:clamp(2.5rem,5vw,4rem);
+  line-height:1.1;margin-bottom:24px;
+  background:linear-gradient(135deg,var(--text) 0%,var(--accent-light) 50%,var(--accent) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero .tagline{
+  font-size:clamp(1rem,2vw,1.25rem);
+  color:var(--text-muted);max-width:600px;margin:0 auto 40px;
+}
+.hero-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 28px;border-radius:8px;
+  font-family:var(--font-display);font-weight:700;font-size:15px;
+  text-decoration:none;transition:all 0.2s;border:none;cursor:pointer;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  color:#fff;box-shadow:0 4px 24px var(--accent-glow);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px var(--accent-glow)}
+.btn-secondary{
+  background:var(--surface);color:var(--text);
+  border:1px solid var(--border-hover);
+}
+.btn-secondary:hover{border-color:var(--accent);background:var(--accent-subtle)}
+
+/* Install snippet */
+.install{
+  margin:48px auto 0;max-width:480px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:16px 24px;
+  font-family:var(--font-mono);font-size:14px;color:var(--accent-light);
+  text-align:left;
+}
+.install .prompt{color:var(--text-dim)}
+
+/* Features */
+.features{padding:80px 0}
+.features h2{
+  font-family:var(--font-display);font-weight:700;font-size:1.75rem;
+  text-align:center;margin-bottom:48px;
+}
+.features-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:24px;
+}
+.feature-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:32px;
+  transition:border-color 0.2s,transform 0.2s;
+}
+.feature-card:hover{border-color:var(--border-hover);transform:translateY(-4px)}
+.feature-icon{
+  width:48px;height:48px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:16px;font-size:24px;
+}
+.feature-icon-red{background:rgba(233,19,21,0.1);color:var(--accent)}
+.feature-icon-yellow{background:rgba(255,200,63,0.1);color:var(--accent-light)}
+.feature-icon-blue{background:rgba(1,118,206,0.1);color:var(--blue)}
+.feature-card h3{
+  font-family:var(--font-display);font-weight:700;font-size:1.125rem;
+  margin-bottom:8px;
+}
+.feature-card p{color:var(--text-muted);font-size:0.9rem;line-height:1.6}
+
+/* How It Works */
+.how-it-works{padding:80px 0;border-top:1px solid var(--border)}
+.how-it-works h2{
+  font-family:var(--font-display);font-weight:700;font-size:1.75rem;
+  text-align:center;margin-bottom:48px;
+}
+.steps{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:24px;counter-reset:step;
+}
+.step{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:28px;counter-increment:step;
+  position:relative;
+}
+.step::before{
+  content:counter(step);
+  font-family:var(--font-display);font-weight:800;font-size:2rem;
+  color:var(--accent);opacity:0.3;
+  position:absolute;top:16px;right:20px;
+}
+.step h4{font-family:var(--font-display);font-weight:700;margin-bottom:8px;font-size:1rem}
+.step p{color:var(--text-muted);font-size:0.85rem}
+
+/* Code example */
+.code-section{padding:80px 0;border-top:1px solid var(--border)}
+.code-section h2{
+  font-family:var(--font-display);font-weight:700;font-size:1.75rem;
+  text-align:center;margin-bottom:12px;
+}
+.code-section .subtitle{
+  text-align:center;color:var(--text-muted);font-size:0.95rem;margin-bottom:32px;
+}
+.code-block{
+  background:#1a1a1f;border:1px solid var(--border);
+  border-radius:12px;padding:28px 32px;
+  max-width:700px;margin:0 auto;
+  overflow-x:auto;
+}
+.code-block pre{
+  font-family:var(--font-mono);font-size:13px;line-height:1.8;
+  color:var(--text-muted);white-space:pre;
+}
+.code-block .kw{color:var(--accent)}
+.code-block .str{color:var(--accent-light)}
+.code-block .cmt{color:var(--text-dim)}
+.code-block .fn{color:var(--blue)}
+.code-block .tag{color:#10b981}
+
+/* Footer */
+footer{
+  border-top:1px solid var(--border);
+  padding:48px 0;margin-top:80px;
+}
+.footer-inner{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  flex-wrap:wrap;gap:40px;
+}
+.footer-brand{max-width:300px}
+.footer-brand h4{
+  font-family:var(--font-display);font-weight:700;font-size:1.125rem;
+  margin-bottom:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.footer-brand p{color:var(--text-dim);font-size:0.85rem}
+.footer-links h5{
+  font-family:var(--font-display);font-weight:600;font-size:0.8rem;
+  text-transform:uppercase;letter-spacing:0.05em;
+  color:var(--text-muted);margin-bottom:12px;
+}
+.footer-links ul{list-style:none}
+.footer-links li{margin-bottom:8px}
+.footer-links a{color:var(--text-dim);text-decoration:none;font-size:0.85rem;transition:color 0.2s}
+.footer-links a:hover{color:var(--text)}
+.footer-bottom{
+  text-align:center;padding-top:32px;margin-top:32px;
+  border-top:1px solid var(--border);
+  color:var(--text-dim);font-size:0.8rem;
+}
+
+@media(max-width:640px){
+  .hero{padding:80px 0 60px}
+  .nav-links{gap:16px}
+  .footer-inner{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<nav>
+  <div class="container nav-inner">
+    <a href="/p2p-passkeys/" class="nav-logo">P2Pass</a>
+    <div class="nav-links">
+      <a href="/p2p-passkeys/guide/">Docs</a>
+      <a href="/p2p-passkeys/demo/">Demo</a>
+      <a href="https://github.com/asabya/p2p-passkeys">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <section class="hero">
+    <div class="container">
+      <h1>Passkey Identity.<br>Peer-to-Peer.</h1>
+      <p class="tagline">
+        Create, replicate, use passkeys and UCANs peer to peer. Optionally backup and recover them from Storacha.
+      </p>
+      <div class="hero-buttons">
+        <a href="/p2p-passkeys/guide/" class="btn btn-primary">Get Started</a>
+        <a href="/p2p-passkeys/demo/" class="btn btn-secondary">Live Demo</a>
+      </div>
+      <div class="install">
+        <span class="prompt">$</span> npm install p2pass
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="container">
+      <h2>Everything You Need</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-yellow">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          </div>
+          <h3>P2P Device Linking</h3>
+          <p>Link multiple devices directly over libp2p with an approval-based pairing protocol. OrbitDB becomes the shared registry for credentials, linked devices, and encrypted identity state.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-red">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+          </div>
+          <h3>Passkey DID Identity</h3>
+          <p>WebAuthn biometric auth with auto-detection of hardware Ed25519, P-256, or worker-derived keys. PRF seed extraction gives each user a deterministic decentralized identity.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-blue">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          </div>
+          <h3>Optional Backup and Recovery</h3>
+          <p>Use UCAN-delegated Storacha storage for encrypted backup and recovery. The live multi-device path is peer-to-peer; Storacha is there when you need durable restore.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-yellow">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8m-8 5h8m-8 5h5M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+          </div>
+          <h3>p2p UCAN replication &amp; delegations</h3>
+          <p>Aggregate UCAN delegations between devices (coming soon).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how-it-works">
+    <div class="container">
+      <h2>How It Works</h2>
+      <div class="steps">
+        <div class="step">
+          <h4>Authenticate</h4>
+          <p>User taps biometric prompt. WebAuthn PRF seed derives an Ed25519 DID.</p>
+        </div>
+        <div class="step">
+          <h4>Start the P2P Stack</h4>
+          <p>libp2p, Helia, and OrbitDB initialize locally. The current device joins the shared identity registry.</p>
+        </div>
+        <div class="step">
+          <h4>Link Another Device</h4>
+          <p>Exchange peer info, approve the pairing request, and let the second device join the same OrbitDB-backed identity graph.</p>
+        </div>
+        <div class="step">
+          <h4>Add Backup if Needed</h4>
+          <p>Optionally import a UCAN delegation and publish encrypted backup state to Storacha for recovery on a fresh device.</p>
+        </div>
+        <div class="step">
+          <h4>How UCAN delegation and replication works</h4>
+          <p>Create UCAN delegation for other connected devices with a single click, no more copy pasting delegations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="code-section">
+    <div class="container">
+      <h2>Drop In, Ship It</h2>
+      <p class="subtitle">Add the floating action button to your Svelte app in three lines.</p>
+      <div class="code-block">
+<pre><span class="cmt">// Svelte</span>
+<span class="kw">import</span> { <span class="fn">P2Pass</span> } <span class="kw">from</span> <span class="str">'p2pass'</span>;
+
+<span class="tag">&lt;P2Pass</span> <span class="fn">preferWorkerMode</span>={<span class="kw">true</span>} <span class="tag">/&gt;</span>
+
+<span class="cmt">// React</span>
+<span class="kw">import</span> { <span class="fn">P2Pass</span> } <span class="kw">from</span> <span class="str">'p2pass/react'</span>;
+
+<span class="tag">&lt;P2Pass</span> <span class="fn">preferWorkerMode</span>={<span class="kw">true</span>} <span class="tag">/&gt;</span></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <h4>P2Pass</h4>
+        <p>Peer-to-peer passkey identities for multi-device apps, with Storacha backup available when recovery matters.</p>
+      </div>
+      <div class="footer-links">
+        <h5>Documentation</h5>
+        <ul>
+          <li><a href="/p2p-passkeys/guide/docs/intro">Introduction</a></li>
+          <li><a href="/p2p-passkeys/guide/docs/getting-started">Getting Started</a></li>
+          <li><a href="/p2p-passkeys/guide/docs/api-reference">API Reference</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h5>Built On</h5>
+        <ul>
+          <li><a href="https://libp2p.io">libp2p</a></li>
+          <li><a href="https://orbitdb.org">OrbitDB</a></li>
+          <li><a href="https://storacha.network">Storacha</a></li>
+          <li><a href="https://www.w3.org/TR/webauthn-2/">WebAuthn</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h5>More</h5>
+        <ul>
+          <li><a href="https://github.com/asabya/p2p-passkeys">GitHub</a></li>
+          <li><a href="/p2p-passkeys/demo/">Live Demo</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      P2Pass &mdash; MIT License
+    </div>
+  </div>
+</footer>
+</body>
+</html>

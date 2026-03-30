@@ -16,12 +16,19 @@
     "access": "public"
   },
   "scripts": {
-    "dev:example": "vite --config example/vite.config.js",
-    "build:example": "vite build --config example/vite.config.js",
+    "dev:example": "vite --config examples/svelte/vite.config.js",
+    "build:example": "vite build --config examples/svelte/vite.config.js",
+    "dev:svelte": "vite --config examples/svelte/vite.config.js",
+    "build:svelte": "vite build --config examples/svelte/vite.config.js",
+    "dev:react": "vite --config examples/react/vite.config.js",
+    "build:react": "vite build --config examples/react/vite.config.js",
+    "build:docs": "cd docs-site && npm run build && rm -rf ../docs/guide && cp -r build ../docs/guide",
+    "build:demo": "BASE_URL=/p2p-passkeys/demo/ vite build --config examples/svelte/vite.config.js --outDir ../../docs/demo --emptyOutDir",
     "kill:dev": "bash scripts/kill-relay-and-vite.sh",
     "test:e2e": "playwright test",
     "test:e2e:recovery-ipns": "playwright test e2e/recovery-worker.spec.js -g \"(b)\"",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed --project=chromium",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepackage": "node scripts/sync-version.mjs",
@@ -43,6 +50,10 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    },
     "./signing-preference": {
       "types": "./dist/identity/signing-preference.d.ts",
       "import": "./dist/identity/signing-preference.js",
@@ -61,6 +72,18 @@
       "default": "./dist/ui/StorachaFab.svelte"
     }
   },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
   "files": [
     "dist",
     "!dist/**/*.test.*",
@@ -68,16 +91,19 @@
   ],
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.51.0",
+    "@playwright/test": "^1.58.2",
     "@sveltejs/package": "^2.3.10",
     "@sveltejs/vite-plugin-svelte": "^6.1.4",
     "@tailwindcss/vite": "^4.1.17",
+    "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^10.1.0",
     "eslint-plugin-svelte": "^3.16.0",
     "globals": "^17.4.0",
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.5.1",
     "publint": "^0.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "svelte": "^5.38.7",
     "svelte-check": "^4.3.1",
     "svelte-eslint-parser": "^1.6.0",
