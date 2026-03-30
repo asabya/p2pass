@@ -1,6 +1,6 @@
 {
   "name": "@le-space/p2pass",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "description": "P2Pass — peer-to-peer passkeys, UCANs, OrbitDB registry sync, and Storacha backup (Svelte)",
   "license": "MIT",
