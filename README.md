@@ -1,8 +1,11 @@
-# P2Pass
+# P2Pass (`@le-space/p2pass`)
 
-P2Pass is a standalone Svelte component for P2P passkey-based DID identities with [Storacha](https://storacha.network) decentralized backup.
+[![Tests](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml/badge.svg)](https://github.com/asabya/p2p-passkeys/actions/workflows/tests.yml)
 
-Drop in `<P2Pass />` and get:
+Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
+
+Drop in `<StorachaFab />` (or the **`P2Pass`** named export — same component) and get:
+
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
 - OrbitDB backup/restore with progress tracking
@@ -13,28 +16,24 @@ Drop in `<P2Pass />` and get:
 ## Install
 
 ```bash
-npm install p2pass
+npm install @le-space/p2pass
 ```
 
 ## Usage
 
 ```svelte
 <script>
-  import { P2Pass } from 'p2pass';
+  import { StorachaFab } from '@le-space/p2pass';
 </script>
 
-<P2Pass
-  {orbitdb}
-  {libp2p}
-  onAuthenticate={handleAuthenticate}
-  preferWorkerMode={true}
-/>
+<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
 ```
 
 The component handles everything internally:
+
 1. Click the floating Storacha button (bottom-right)
-2. "Authenticate with Passkey" → biometric prompt → DID created
-3. Two tabs appear: **Storacha** (backup/restore) and **P2Pass** (device linking)
+2. Choose a **signing mode** (hardware Ed25519 with P-256 fallback, hardware P-256 only, or worker Ed25519), then **Authenticate with Passkey** → biometric prompt → DID created
+3. Two tabs appear: **P2P Passkeys** (device linking) and **Storacha** (backup/restore); P2P Passkeys is the default
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
 5. The P2Pass tab shows connection status, peer info, and linked devices
 
@@ -42,7 +41,7 @@ The component handles everything internally:
 
 ```jsx
 import { useRef } from 'react';
-import { P2Pass } from 'p2pass/react';
+import { P2Pass } from '@le-space/p2pass/react';
 
 function App() {
   const fabRef = useRef(null);
@@ -147,10 +146,12 @@ User clicks "Recover Identity"
 ### Key Insight
 
 The WebAuthn credential never signs anything — it's only used for:
+
 1. **User verification** (biometric gate)
 2. **PRF seed extraction** (deterministic secret derived from biometric + salt)
 
 The PRF seed is the root of all derived keys:
+
 - **Ed25519 DID keypair** — encrypted with PRF-derived AES key
 - **IPNS recovery key** — deterministically derived from PRF seed
 - **Keystore encryption** — PRF seed used as AES-GCM key
@@ -159,48 +160,55 @@ This means the same passkey on any device (via passkey sync) produces the same P
 
 ### Signing Modes
 
-| Mode | Security | Key Storage | Biometric |
-|------|----------|-------------|-----------|
-| Hardware Ed25519 | Highest | TPM/Secure Enclave | Per signature |
-| Hardware P-256 | High | TPM/Secure Enclave | Per signature |
-| Worker Ed25519 | Medium | Web worker + encrypted localStorage | On init only |
+| Mode             | Security | Key Storage                         | Biometric     |
+| ---------------- | -------- | ----------------------------------- | ------------- |
+| Hardware Ed25519 | Highest  | TPM/Secure Enclave                  | Per signature |
+| Hardware P-256   | High     | TPM/Secure Enclave                  | Per signature |
+| Worker Ed25519   | Medium   | Web worker + encrypted localStorage | On init only  |
 
-Use `preferWorkerMode={true}` for P2Pass/OrbitDB identity (required for multi-device). The component auto-detects the best available mode when `preferWorkerMode` is not set.
+**Worker Ed25519** matches typical OrbitDB multi-device flows (signing key in a worker). **Hardware** modes keep private keys in the authenticator; hardware Ed25519 lists Ed25519 first and may obtain **P-256** if the device does not support hardware Ed25519. Pick the mode in the panel before authenticating, or set `signingPreference="worker"` / `preferWorkerMode` on the component. If neither is set, the component can auto-detect a reasonable default.
 
 ## Props
 
 When using the Svelte components directly:
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `orbitdb` | object | `null` | OrbitDB instance (for backup/restore) |
-| `database` | object | `null` | Database instance to backup |
-| `isInitialized` | boolean | `false` | Whether OrbitDB is ready |
-| `entryCount` | number | `0` | Database entry count |
-| `databaseName` | string | `'restored-db'` | Name for restored database |
-| `onRestore` | function | `() => {}` | Called when restore completes |
-| `onBackup` | function | `() => {}` | Called when backup completes |
-| `onAuthenticate` | function | `() => {}` | Called after passkey auth (receives signingMode) |
-| `libp2p` | object | `null` | libp2p instance for P2P connectivity |
-| `preferWorkerMode` | boolean | `false` | Skip hardware mode, use worker Ed25519 |
+| Prop                | Type     | Default         | Description                                                                              |
+| ------------------- | -------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `orbitdb`           | object   | `null`          | OrbitDB instance (for backup/restore)                                                    |
+| `database`          | object   | `null`          | Database instance to backup                                                              |
+| `isInitialized`     | boolean  | `false`         | Whether OrbitDB is ready                                                                 |
+| `entryCount`        | number   | `0`             | Database entry count                                                                     |
+| `databaseName`      | string   | `'restored-db'` | Name for restored database                                                               |
+| `onRestore`         | function | `() => {}`      | Called when restore completes                                                            |
+| `onBackup`          | function | `() => {}`      | Called when backup completes                                                             |
+| `onAuthenticate`    | function | `() => {}`      | Called after passkey auth (receives signingMode)                                         |
+| `libp2p`            | object   | `null`          | libp2p instance for P2P connectivity                                                     |
+| `signingPreference` | `string` | `null`          | `'hardware-ed25519'`, `'hardware-p256'`, or `'worker'` — overrides the in-panel selector |
+| `preferWorkerMode`  | boolean  | `false`         | Deprecated; same as `signingPreference="worker"`                                         |
 
 For React wrappers, `orbitdb`, `database`, and `libp2p` should be updated through the component ref instead of passed as live React props.
 
 ## Components
 
-### `P2Pass`
-Floating action button (bottom-right) with the Storacha rooster logo. Opens the P2Pass panel as an overlay. Self-contained — no Tailwind or external CSS required.
+### `StorachaFab` (`P2Pass`)
 
-### `P2PassPanel`
-The panel component itself. Can be embedded inline instead of as a floating panel.
+Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required. The **`P2Pass`** export is an alias for the same Svelte component.
+
+### `StorachaIntegration` (`P2PassPanel`)
+
+The panel component itself. Can be embedded inline instead of as a floating panel. **`P2PassPanel`** is a named alias.
 
 ## Programmatic API
 
 ```js
 import {
-  IdentityService, createStorachaClient, parseDelegation,
-  setupP2PStack, createLibp2pInstance, cleanupP2PStack
-} from 'p2pass';
+  IdentityService,
+  createStorachaClient,
+  parseDelegation,
+  setupP2PStack,
+  createLibp2pInstance,
+  cleanupP2PStack,
+} from '@le-space/p2pass';
 
 // Create identity (worker mode for P2P)
 const identity = new IdentityService();
@@ -229,28 +237,46 @@ npm run test:e2e:headed
 npm run package        # Build library
 ```
 
-## Testing
+### End-to-end tests
 
-The Playwright suite covers:
-- widget tab order and tab switching
-- passkey authentication and DID display/copy
-- peer info copy and invalid peer info handling
-- P2Pass multi-device flows, including pairing approval and known-device auto-grant
+Playwright drives the **Svelte example app** in Chromium (with optional virtual WebAuthn where configured). Primary integration specs live in **`e2e/`** (for example `link-devices.spec.js` for multi-device pairing). The **`tests/`** directory also contains additional widget-style E2E tests; the unified Playwright config can run both suites.
 
-Run the full Chromium E2E suite locally with:
+**Run:**
 
 ```bash
-npm run test:e2e -- --project=chromium --reporter=line
+npm run test:e2e       # headless; starts relay + Vite for e2e/ specs (see playwright.config.js)
+npm run test:e2e:ui    # Playwright UI mode (debugging)
+```
+
+For `e2e/`, `playwright.config.js` starts **`scripts/e2e-with-relay.mjs`**, which:
+
+1. Launches **orbitdb-relay-pinner** (local libp2p relay).
+2. Fetches WebSocket bootstrap multiaddrs from the relay’s HTTP API and passes them to Vite as **`VITE_BOOTSTRAP_PEERS`** so browsers can connect.
+3. Runs **`svelte-package`** and the **example Vite dev server** on port **5173**.
+
+First-time setup may require browser binaries:
+
+```bash
+npx playwright install chromium
+```
+
+**Reuse a running dev server** (you must still provide a relay and matching `VITE_BOOTSTRAP_PEERS` yourself if you skip the script):
+
+```bash
+PW_REUSE_SERVER=1 npm run test:e2e
+```
+
+Failed runs write HTML reports, screenshots, traces, and video under `test-results/` (see Playwright output for paths).
+
+**Signing mode in e2e:** set `E2E_SIGNING_MODE` to `worker`, `hardware-ed25519`, or `hardware-p256` (default in helpers is `worker`). CI runs the link-devices spec **three times** (matrix), one per mode.
+
+```bash
+E2E_SIGNING_MODE=hardware-ed25519 npm run test:e2e
 ```
 
 ## CI
 
-GitHub Actions runs the Playwright E2E suite on:
-- every pull request
-- every push to `master`
-
-Workflow file:
-- `.github/workflows/e2e.yml`
+GitHub Actions runs unit tests (Vitest) and Playwright on **pull requests and pushes**. Workflow: **`.github/workflows/tests.yml`**.
 
 ## Dependencies
 

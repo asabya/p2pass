@@ -1,18 +1,17 @@
 /**
- * Multi-Device Registry for OrbitDB WebAuthn
+ * Multi-device OrbitDB key/value registry for WebAuthn-backed identities.
  *
  * Manages a KV store of registered devices, UCAN delegations, and encrypted
- * Ed25519 archives using OrbitDBAccessController so write access can be
- * dynamically granted to new devices.
+ * Ed25519 archives using `OrbitDBAccessController` so write access can be
+ * granted to linked devices.
  *
  * Key prefixes:
- *   (none)          — device entries (keyed by sha256(credentialId))
- *   delegation:     — UCAN delegation proofs
- *   archive:        — encrypted Ed25519 archives
- *   keypair:        — Ed25519 keypair metadata (publicKey + DID, no private key)
+ * - _(none)_ — device entries (keyed by SHA-256 of `credential_id`)
+ * - `delegation:` — UCAN delegation proofs
+ * - `archive:` — encrypted Ed25519 archives
+ * - `keypair:` — Ed25519 keypair metadata (public key + DID only)
  *
- * Copied from orbitdb-identity-provider-webauthn-did/src/multi-device/device-registry.js
- * and extended with delegation + archive + keypair storage.
+ * @module registry/device-registry
  */
 
 import { OrbitDBAccessController } from '@orbitdb/core';
@@ -81,7 +80,7 @@ export async function openDeviceRegistry(orbitdb, ownerIdentityId, address = nul
 /**
  * Register a device entry in the registry.
  * @param {Object} db - OrbitDB KV database
- * @param {Object} entry - { credential_id, public_key, device_label, created_at, status, ed25519_did }
+ * @param {Object} entry - { credential_id, public_key, device_label, created_at, status, ed25519_did, passkey_kind? }
  */
 export async function registerDevice(db, entry) {
   const key = await hashCredentialId(entry.credential_id);
@@ -98,7 +97,12 @@ export async function registerDevice(db, entry) {
 export async function listDevices(db) {
   const all = await db.all();
   return all
-    .filter((e) => !e.key?.startsWith?.('delegation:') && !e.key?.startsWith?.('archive:') && !e.key?.startsWith?.('keypair:'))
+    .filter(
+      (e) =>
+        !e.key?.startsWith?.('delegation:') &&
+        !e.key?.startsWith?.('archive:') &&
+        !e.key?.startsWith?.('keypair:')
+    )
     .map((e) => e.value);
 }
 
@@ -148,6 +152,72 @@ export async function revokeDeviceAccess(db, did) {
   }
 }
 
+/**
+ * Revoke a device's write access and remove its registry row (OrbitDB KV key).
+ *
+ * @param {Object} db - OrbitDB KV database
+ * @param {string} credentialId - device entry credential_id (same string used at registration)
+ * @returns {Promise<boolean>} true if an entry was removed
+ */
+export async function removeDeviceEntry(db, credentialId) {
+  const key = await hashCredentialId(credentialId);
+  const entry = await db.get(key);
+  if (!entry) return false;
+  const did = entry.ed25519_did;
+  try {
+    if (did) await db.access.revoke('write', did);
+  } catch (err) {
+    console.warn('[device-registry] revoke write before del:', err?.message);
+  }
+  await db.del(key);
+  return true;
+}
+
+/**
+ * UCAN delegations attributed to a device (stored_by_did). Entries without stored_by_did count toward ownerDidForLegacy only.
+ *
+ * @param {Array<{ stored_by_did?: string }>} delegations
+ * @param {string} deviceDid
+ * @param {string} [ownerDidForLegacy]
+ * @returns {number}
+ */
+export function delegationCountForDevice(delegations, deviceDid, ownerDidForLegacy) {
+  if (!deviceDid) return 0;
+  let n = 0;
+  for (const d of delegations) {
+    if (d.stored_by_did === deviceDid) n++;
+  }
+  if (ownerDidForLegacy && deviceDid === ownerDidForLegacy) {
+    for (const d of delegations) {
+      if (!d.stored_by_did) n++;
+    }
+  }
+  return n;
+}
+
+/**
+ * Registry delegation rows attributed to a device (same rules as {@link delegationCountForDevice}).
+ *
+ * @param {Array<{ stored_by_did?: string, delegation?: string }>} delegations
+ * @param {string} deviceDid
+ * @param {string} [ownerDidForLegacy]
+ * @returns {Array<Record<string, unknown>>}
+ */
+export function delegationsEntriesForDevice(delegations, deviceDid, ownerDidForLegacy) {
+  if (!deviceDid) return [];
+  /** @type {Array<Record<string, unknown>>} */
+  const out = [];
+  for (const d of delegations) {
+    if (d.stored_by_did === deviceDid) out.push(d);
+  }
+  if (ownerDidForLegacy && deviceDid === ownerDidForLegacy) {
+    for (const d of delegations) {
+      if (!d.stored_by_did) out.push(d);
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // UCAN delegation entries
 // ---------------------------------------------------------------------------
@@ -158,8 +228,9 @@ export async function revokeDeviceAccess(db, did) {
  * @param {string} delegationBase64 - raw delegation string
  * @param {string} [spaceDid] - Storacha space DID
  * @param {string} [label] - human-readable label
+ * @param {string} [storedByDid] - Ed25519 DID of the device that stored this delegation (for per-device UI)
  */
-export async function storeDelegationEntry(db, delegationBase64, spaceDid, label) {
+export async function storeDelegationEntry(db, delegationBase64, spaceDid, label, storedByDid) {
   const hash = await hashCredentialId(delegationBase64);
   const key = `delegation:${hash}`;
   await db.put(key, {
@@ -167,6 +238,7 @@ export async function storeDelegationEntry(db, delegationBase64, spaceDid, label
     space_did: spaceDid || '',
     label: label || 'default',
     created_at: Date.now(),
+    stored_by_did: storedByDid || '',
   });
 }
 
@@ -177,9 +249,7 @@ export async function storeDelegationEntry(db, delegationBase64, spaceDid, label
  */
 export async function listDelegations(db) {
   const all = await db.all();
-  return all
-    .filter((e) => e.key?.startsWith?.('delegation:'))
-    .map((e) => e.value);
+  return all.filter((e) => e.key?.startsWith?.('delegation:')).map((e) => e.value);
 }
 
 /**
@@ -268,7 +338,5 @@ export async function getKeypairEntry(db, did) {
  */
 export async function listKeypairs(db) {
   const all = await db.all();
-  return all
-    .filter((e) => e.key?.startsWith?.('keypair:'))
-    .map((e) => e.value);
+  return all.filter((e) => e.key?.startsWith?.('keypair:')).map((e) => e.value);
 }

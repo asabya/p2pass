@@ -51,7 +51,7 @@ export function createManifest({ registryAddress, delegation, ownerDid, archiveC
     delegation,
     ownerDid,
     archiveCID: archiveCID || null,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   };
 }
 
@@ -122,10 +122,7 @@ export async function publishManifest(storachaClient, ipnsPrivateKey, manifest) 
   const name = await W3Name.from(ipnsPrivateKey.raw);
 
   // 2. Upload the manifest JSON to Storacha
-  const manifestBlob = new Blob(
-    [JSON.stringify(manifest)],
-    { type: 'application/json' }
-  );
+  const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
   const cid = await storachaClient.uploadFile(manifestBlob);
 
   // 3. Build the IPNS value pointing at the uploaded CID
@@ -147,10 +144,7 @@ export async function publishManifest(storachaClient, ipnsPrivateKey, manifest) 
   // 6. Persist the revision locally for future increments
   try {
     const encoded = W3Name.Revision.encode(revision);
-    localStorage.setItem(
-      REVISION_KEY,
-      JSON.stringify(Array.from(encoded))
-    );
+    localStorage.setItem(REVISION_KEY, JSON.stringify(Array.from(encoded)));
   } catch {
     console.log(PREFIX, 'Could not persist IPNS revision to localStorage');
   }
@@ -159,7 +153,7 @@ export async function publishManifest(storachaClient, ipnsPrivateKey, manifest) 
 
   return {
     nameString: name.toString(),
-    manifestCID: cid.toString()
+    manifestCID: cid.toString(),
   };
 }
 

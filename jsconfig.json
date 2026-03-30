@@ -1,13 +1,38 @@
 {
-	"compilerOptions": {
-		"allowJs": true,
-		"checkJs": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
-		"sourceMap": true,
-		"strict": true,
-		"moduleResolution": "bundler"
-	}
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "src/**/*.js",
+    "src/**/*.svelte",
+    "examples/**/*.js",
+    "examples/**/*.svelte",
+    "examples/**/*.jsx",
+    "e2e/**/*.js",
+    "tests/**/*.js",
+    "scripts/**/*.mjs",
+    "eslint.config.js",
+    "playwright.config.js",
+    "vitest.config.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "docs-site",
+    "example",
+    "build",
+    "test-results",
+    "playwright-report",
+    "docs/demo",
+    "docs/guide",
+    "coverage"
+  ]
 }

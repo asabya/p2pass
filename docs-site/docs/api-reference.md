@@ -20,11 +20,11 @@ import { P2Pass, P2PassPanel } from 'p2pass/react';
 import { IdentityService, detectSigningMode, getStoredSigningMode } from 'p2pass';
 ```
 
-| Export | Description |
-|--------|-------------|
-| `IdentityService` | Class — WebAuthn identity orchestrator |
-| `detectSigningMode(options?)` | Auto-detect hardware vs worker signing mode |
-| `getStoredSigningMode(registryDb?)` | Get cached mode without biometric prompt |
+| Export                              | Description                                 |
+| ----------------------------------- | ------------------------------------------- |
+| `IdentityService`                   | Class — WebAuthn identity orchestrator      |
+| `detectSigningMode(options?)`       | Auto-detect hardware vs worker signing mode |
+| `getStoredSigningMode(registryDb?)` | Get cached mode without biometric prompt    |
 
 ## UCAN / Storacha Auth
 
@@ -34,17 +34,17 @@ import {
   parseDelegation,
   storeDelegation,
   loadStoredDelegation,
-  clearStoredDelegation
+  clearStoredDelegation,
 } from 'p2pass';
 ```
 
-| Export | Description |
-|--------|-------------|
-| `createStorachaClient(principal, delegation)` | Create authenticated Storacha client |
-| `parseDelegation(proofString)` | Parse delegation (multibase, base64, CAR) |
-| `storeDelegation(base64, registryDb?, spaceDid?)` | Persist delegation |
-| `loadStoredDelegation(registryDb?)` | Load persisted delegation |
-| `clearStoredDelegation(registryDb?, base64?)` | Remove delegation(s) |
+| Export                                            | Description                               |
+| ------------------------------------------------- | ----------------------------------------- |
+| `createStorachaClient(principal, delegation)`     | Create authenticated Storacha client      |
+| `parseDelegation(proofString)`                    | Parse delegation (multibase, base64, CAR) |
+| `storeDelegation(base64, registryDb?, spaceDid?)` | Persist delegation                        |
+| `loadStoredDelegation(registryDb?)`               | Load persisted delegation                 |
+| `clearStoredDelegation(registryDb?, base64?)`     | Remove delegation(s)                      |
 
 ## Device Registry
 
@@ -67,7 +67,7 @@ import {
   getKeypairEntry,
   listKeypairs,
   hashCredentialId,
-  coseToJwk
+  coseToJwk,
 } from 'p2pass';
 ```
 
@@ -85,27 +85,22 @@ import {
   registerLinkDeviceHandler,
   unregisterLinkDeviceHandler,
   sendPairingRequest,
-  detectDeviceLabel
+  detectDeviceLabel,
 } from 'p2pass';
 ```
 
 ## P2P Stack
 
 ```js
-import {
-  setupP2PStack,
-  createLibp2pInstance,
-  createHeliaInstance,
-  cleanupP2PStack
-} from 'p2pass';
+import { setupP2PStack, createLibp2pInstance, createHeliaInstance, cleanupP2PStack } from 'p2pass';
 ```
 
-| Export | Description |
-|--------|-------------|
+| Export                                 | Description                          |
+| -------------------------------------- | ------------------------------------ |
 | `setupP2PStack(credential?, options?)` | Full stack: libp2p + Helia + OrbitDB |
-| `createLibp2pInstance()` | libp2p only (before auth) |
-| `createHeliaInstance(libp2p)` | Helia IPFS node |
-| `cleanupP2PStack(stack)` | Shutdown everything |
+| `createLibp2pInstance()`               | libp2p only (before auth)            |
+| `createHeliaInstance(libp2p)`          | Helia IPFS node                      |
+| `cleanupP2PStack(stack)`               | Shutdown everything                  |
 
 ## Recovery
 
@@ -119,7 +114,7 @@ import {
   resolveManifest,
   resolveManifestByName,
   uploadArchiveToIPFS,
-  fetchArchiveFromIPFS
+  fetchArchiveFromIPFS,
 } from 'p2pass';
 ```
 

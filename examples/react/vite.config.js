@@ -8,29 +8,31 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	root: __dirname,
-	plugins: [
-		react(),
-		svelte(),
-		nodePolyfills({
-			include: ['buffer', 'process', 'stream', 'util', 'events', 'path']
-		})
-	],
-	resolve: {
-		alias: {
-			p2pass: path.resolve(__dirname, '../../src/lib')
-		}
-	},
-	optimizeDeps: {
-		exclude: ['@le-space/orbitdb-identity-provider-webauthn-did']
-	},
-	worker: {
-		format: 'es'
-	},
-	server: {
-		port: 5174,
-		headers: {
-			'Content-Security-Policy': "script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:;"
-		}
-	}
+  root: __dirname,
+  plugins: [
+    react(),
+    svelte(),
+    nodePolyfills({
+      include: ['buffer', 'process', 'stream', 'util', 'events', 'path'],
+    }),
+  ],
+  resolve: {
+    alias: {
+      '@le-space/p2pass': path.resolve(__dirname, '../../src/lib/index.js'),
+      '@le-space/p2pass/react': path.resolve(__dirname, '../../src/lib/react/index.js'),
+    },
+  },
+  optimizeDeps: {
+    exclude: ['@le-space/orbitdb-identity-provider-webauthn-did'],
+  },
+  worker: {
+    format: 'es',
+  },
+  server: {
+    port: 5174,
+    headers: {
+      'Content-Security-Policy':
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:;",
+    },
+  },
 });

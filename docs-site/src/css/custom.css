@@ -1,5 +1,5 @@
 :root {
-  --ifm-color-primary: #E91315;
+  --ifm-color-primary: #e91315;
   --ifm-color-primary-dark: #d11113;
   --ifm-color-primary-darker: #c51012;
   --ifm-color-primary-darkest: #a20d0f;
@@ -14,7 +14,7 @@
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #FFC83F;
+  --ifm-color-primary: #ffc83f;
   --ifm-color-primary-dark: #ffbf26;
   --ifm-color-primary-darker: #ffbb19;
   --ifm-color-primary-darkest: #e5a400;

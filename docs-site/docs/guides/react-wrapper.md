@@ -38,13 +38,13 @@ export default {
     react(),
     svelte(),
     nodePolyfills({
-      include: ['buffer', 'process', 'stream', 'util', 'events', 'path']
-    })
+      include: ['buffer', 'process', 'stream', 'util', 'events', 'path'],
+    }),
   ],
   optimizeDeps: {
-    exclude: ['@le-space/orbitdb-identity-provider-webauthn-did']
+    exclude: ['@le-space/orbitdb-identity-provider-webauthn-did'],
   },
-  worker: { format: 'es' }
+  worker: { format: 'es' },
 };
 ```
 
@@ -77,17 +77,11 @@ function App() {
     libp2pRef.current = stack.libp2p;
     fabRef.current?.updateServices({
       orbitdb: stack.orbitdb,
-      libp2p: stack.libp2p
+      libp2p: stack.libp2p,
     });
   }
 
-  return (
-    <P2Pass
-      ref={fabRef}
-      preferWorkerMode={true}
-      onAuthenticate={handleAuthenticate}
-    />
-  );
+  return <P2Pass ref={fabRef} preferWorkerMode={true} onAuthenticate={handleAuthenticate} />;
 }
 ```
 
@@ -105,6 +99,7 @@ fabRef.current?.updateServices({ libp2p, orbitdb, database });
 ```
 
 Use regular React props only for plain values and callbacks like:
+
 - `isInitialized`
 - `entryCount`
 - `databaseName`

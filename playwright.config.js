@@ -1,35 +1,55 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const playwrightPort = process.env.PLAYWRIGHT_PORT || '4173';
-const baseURL = `http://127.0.0.1:${playwrightPort}`;
+const widgetPort = process.env.PLAYWRIGHT_PORT || '4173';
+const widgetBaseURL = `http://127.0.0.1:${widgetPort}`;
 
 export default defineConfig({
-	testDir: './tests',
-	testMatch: '**/*.e2e.test.js',
-	fullyParallel: false,
-	forbidOnly: !!process.env.CI,
-	timeout: 120 * 1000,
-	retries: process.env.CI ? 2 : 0,
-	workers: 1,
-	reporter: process.env.CI ? 'line' : 'html',
-	use: {
-		baseURL,
-		trace: 'on-first-retry',
-		screenshot: 'only-on-failure',
-		video: 'retain-on-failure'
-	},
-	projects: [
-		{
-			name: 'chromium',
-			use: {
-				...devices['Desktop Chrome']
-			}
-		}
-	],
-	webServer: {
-		command: `env VITE_BOOTSTRAP_PEERS= npm run dev:svelte -- --host 127.0.0.1 --port ${playwrightPort}`,
-		url: baseURL,
-		reuseExistingServer: false,
-		timeout: 120 * 1000
-	}
+  forbidOnly: !!process.env.CI,
+  timeout: 180_000,
+  expect: { timeout: 30_000 },
+  reporter: process.env.CI ? 'line' : [['list'], ['html', { open: 'never' }]],
+  outputDir: 'test-results/',
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  projects: [
+    {
+      name: 'e2e-relay',
+      testDir: './e2e',
+      testMatch: '**/*.spec.js',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://localhost:5173',
+        permissions: ['clipboard-read', 'clipboard-write'],
+        screenshot: 'only-on-failure',
+        trace: 'retain-on-failure',
+        video: 'retain-on-failure',
+      },
+    },
+    {
+      name: 'widget',
+      testDir: './tests',
+      testMatch: '**/*.e2e.test.js',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: widgetBaseURL,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+      },
+    },
+  ],
+  webServer: [
+    {
+      command: 'node scripts/e2e-with-relay.mjs',
+      url: 'http://localhost:5173/',
+      timeout: 240_000,
+      reuseExistingServer: process.env.PW_REUSE_SERVER === '1',
+    },
+    {
+      command: `env VITE_BOOTSTRAP_PEERS= npm run dev:svelte -- --host 127.0.0.1 --port ${widgetPort}`,
+      url: widgetBaseURL,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 });
