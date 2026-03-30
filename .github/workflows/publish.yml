@@ -37,7 +37,7 @@ jobs:
         run: npm test
 
       - name: Run E2E tests
-        run: npm run test:e2e -- --project=chromium --reporter=line
+        run: npm run test:e2e -- --reporter=line
 
       - name: Build package
         run: npm run package

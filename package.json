@@ -27,7 +27,7 @@
     "test:e2e": "playwright test",
     "test:e2e:recovery-ipns": "playwright test e2e/recovery-worker.spec.js -g \"(b-ipns)\"",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed --project=chromium",
+    "test:e2e:headed": "playwright test --headed",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepackage": "node scripts/sync-version.mjs",
