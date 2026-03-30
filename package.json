@@ -1,9 +1,9 @@
 {
-	"name": "p2p-passkeys",
+	"name": "p2pass",
 	"version": "0.1.0",
 	"private": false,
 	"type": "module",
-	"description": "P2P passkey-based DID identities with OrbitDB registry sync and Storacha backup",
+	"description": "P2Pass identities with OrbitDB registry sync and Storacha backup",
 	"license": "MIT",
 	"scripts": {
 		"dev:svelte": "vite --config examples/svelte/vite.config.js",

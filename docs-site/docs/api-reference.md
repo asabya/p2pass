@@ -4,20 +4,20 @@ sidebar_position: 6
 
 # API Reference
 
-All public exports from `p2p-passkeys`.
+All public exports from `p2pass`.
 
 ## UI Components
 
 ```js
-import { StorachaFab, StorachaIntegration } from 'p2p-passkeys';
+import { P2Pass, P2PassPanel } from 'p2pass';
 // React
-import { StorachaFab, StorachaIntegration } from 'p2p-passkeys/react';
+import { P2Pass, P2PassPanel } from 'p2pass/react';
 ```
 
 ## Identity
 
 ```js
-import { IdentityService, detectSigningMode, getStoredSigningMode } from 'p2p-passkeys';
+import { IdentityService, detectSigningMode, getStoredSigningMode } from 'p2pass';
 ```
 
 | Export | Description |
@@ -35,7 +35,7 @@ import {
   storeDelegation,
   loadStoredDelegation,
   clearStoredDelegation
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 | Export | Description |
@@ -68,13 +68,13 @@ import {
   listKeypairs,
   hashCredentialId,
   coseToJwk
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 ## Multi-Device Manager
 
 ```js
-import { MultiDeviceManager } from 'p2p-passkeys';
+import { MultiDeviceManager } from 'p2pass';
 ```
 
 ## Pairing Protocol
@@ -86,7 +86,7 @@ import {
   unregisterLinkDeviceHandler,
   sendPairingRequest,
   detectDeviceLabel
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 ## P2P Stack
@@ -97,7 +97,7 @@ import {
   createLibp2pInstance,
   createHeliaInstance,
   cleanupP2PStack
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 | Export | Description |
@@ -120,17 +120,17 @@ import {
   resolveManifestByName,
   uploadArchiveToIPFS,
   fetchArchiveFromIPFS
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 ## Backup
 
 ```js
-import { backupRegistryDb, restoreRegistryDb } from 'p2p-passkeys';
+import { backupRegistryDb, restoreRegistryDb } from 'p2pass';
 ```
 
 ## Storacha Utilities
 
 ```js
-import { listSpaces, getSpaceUsage, listStorachaFiles } from 'p2p-passkeys';
+import { listSpaces, getSpaceUsage, listStorachaFiles } from 'p2pass';
 ```

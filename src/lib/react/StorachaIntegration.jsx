@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { createIntegration } from './bridge.svelte.js';
 
-export const StorachaIntegration = forwardRef(function StorachaIntegration({
+export const P2PassPanel = forwardRef(function P2PassPanel({
 	isInitialized = false,
 	entryCount = 0,
 	databaseName = 'restored-db',

@@ -1,12 +1,12 @@
-// p2p-passkeys — public API
+// P2Pass — public API
 export const VERSION = '0.1.0';
 
 // UI components
-export { default as StorachaIntegration } from './ui/StorachaIntegration.svelte';
-export { default as StorachaFab } from './ui/StorachaFab.svelte';
+export { default as P2PassPanel } from './ui/StorachaIntegration.svelte';
+export { default as P2Pass } from './ui/StorachaFab.svelte';
 
 // React wrappers
-export { StorachaFab as StorachaFabReact, StorachaIntegration as StorachaIntegrationReact } from './react/index.js';
+export { P2Pass as P2PassReact, P2PassPanel as P2PassPanelReact } from './react/index.js';
 
 // Identity
 export { IdentityService } from './identity/identity-service.js';

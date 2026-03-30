@@ -19,7 +19,7 @@ graph BT
 ## Initialization
 
 ```js
-import { setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2p-passkeys';
+import { setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2pass';
 
 // Option 1: libp2p only (before authentication)
 const libp2p = await createLibp2pInstance();
@@ -63,6 +63,6 @@ Bootstrap peers are configured via `VITE_BOOTSTRAP_PEERS` environment variable (
 
 ## Important Notes
 
-- The example app imports from built `dist/` via `p2p-passkeys` alias (not `../src/lib`) to avoid Vite worker hot-reload issues
+- The example app imports from built `dist/` via the `p2pass` alias (not `../src/lib`) to avoid Vite worker hot-reload issues
 - After source changes: `npm run package` before the example picks them up
 - `optimizeDeps.exclude: ['@le-space/orbitdb-identity-provider-webauthn-did']` is required in Vite config

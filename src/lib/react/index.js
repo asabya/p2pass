@@ -1,2 +1,2 @@
-export { StorachaFab } from './StorachaFab.jsx';
-export { StorachaIntegration } from './StorachaIntegration.jsx';
+export { P2Pass } from './StorachaFab.jsx';
+export { P2PassPanel } from './StorachaIntegration.jsx';

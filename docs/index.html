@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>p2p-passkeys — P2P Passkey-Based DID Identities</title>
+<title>P2Pass — P2P Passkey-Based DID Identities</title>
 <meta name="description" content="Drop-in Svelte component for P2P passkey-based DID identities with Storacha decentralized backup. WebAuthn + UCAN + OrbitDB.">
-<meta property="og:title" content="p2p-passkeys — P2P Passkey-Based DID Identities">
+<meta property="og:title" content="P2Pass — P2P Passkey-Based DID Identities">
 <meta property="og:description" content="Passkey auth, P2P sync, and decentralized backup in one component.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -258,7 +258,7 @@ footer{
 
 <nav>
   <div class="container nav-inner">
-    <a href="/p2p-passkeys/" class="nav-logo">p2p-passkeys</a>
+    <a href="/p2p-passkeys/" class="nav-logo">P2Pass</a>
     <div class="nav-links">
       <a href="/p2p-passkeys/guide/">Docs</a>
       <a href="/p2p-passkeys/demo/">Demo</a>
@@ -272,14 +272,14 @@ footer{
     <div class="container">
       <h1>Passkey Identity.<br>Peer-to-Peer.</h1>
       <p class="tagline">
-        Build peer-to-peer passkey identities for multi-device apps. Authenticate with WebAuthn, link devices directly over libp2p, and optionally add Storacha backup for recovery.
+        Create, replicate, use passkeys and UCANs peer to peer. Optionally backup and recover them from Storacha.
       </p>
       <div class="hero-buttons">
         <a href="/p2p-passkeys/guide/" class="btn btn-primary">Get Started</a>
         <a href="/p2p-passkeys/demo/" class="btn btn-secondary">Live Demo</a>
       </div>
       <div class="install">
-        <span class="prompt">$</span> npm install p2p-passkeys
+        <span class="prompt">$</span> npm install p2pass
       </div>
     </div>
   </section>
@@ -309,6 +309,13 @@ footer{
           <h3>Optional Backup and Recovery</h3>
           <p>Use UCAN-delegated Storacha storage for encrypted backup and recovery. The live multi-device path is peer-to-peer; Storacha is there when you need durable restore.</p>
         </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-yellow">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8m-8 5h8m-8 5h5M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+          </div>
+          <h3>p2p UCAN replication &amp; delegations</h3>
+          <p>Aggregate UCAN delegations between devices (coming soon).</p>
+        </div>
       </div>
     </div>
   </section>
@@ -333,6 +340,10 @@ footer{
           <h4>Add Backup if Needed</h4>
           <p>Optionally import a UCAN delegation and publish encrypted backup state to Storacha for recovery on a fresh device.</p>
         </div>
+        <div class="step">
+          <h4>How UCAN delegation and replication works</h4>
+          <p>Create UCAN delegation for other connected devices with a single click, no more copy pasting delegations.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -343,14 +354,14 @@ footer{
       <p class="subtitle">Add the floating action button to your Svelte app in three lines.</p>
       <div class="code-block">
 <pre><span class="cmt">// Svelte</span>
-<span class="kw">import</span> { <span class="fn">StorachaFab</span> } <span class="kw">from</span> <span class="str">'p2p-passkeys'</span>;
+<span class="kw">import</span> { <span class="fn">P2Pass</span> } <span class="kw">from</span> <span class="str">'p2pass'</span>;
 
-<span class="tag">&lt;StorachaFab</span> <span class="fn">preferWorkerMode</span>={<span class="kw">true</span>} <span class="tag">/&gt;</span>
+<span class="tag">&lt;P2Pass</span> <span class="fn">preferWorkerMode</span>={<span class="kw">true</span>} <span class="tag">/&gt;</span>
 
 <span class="cmt">// React</span>
-<span class="kw">import</span> { <span class="fn">StorachaFab</span> } <span class="kw">from</span> <span class="str">'p2p-passkeys/react'</span>;
+<span class="kw">import</span> { <span class="fn">P2Pass</span> } <span class="kw">from</span> <span class="str">'p2pass/react'</span>;
 
-<span class="tag">&lt;StorachaFab</span> <span class="fn">preferWorkerMode</span>={<span class="kw">true</span>} <span class="tag">/&gt;</span></pre>
+<span class="tag">&lt;P2Pass</span> <span class="fn">preferWorkerMode</span>={<span class="kw">true</span>} <span class="tag">/&gt;</span></pre>
       </div>
     </div>
   </section>
@@ -360,7 +371,7 @@ footer{
   <div class="container">
     <div class="footer-inner">
       <div class="footer-brand">
-        <h4>p2p-passkeys</h4>
+        <h4>P2Pass</h4>
         <p>Peer-to-peer passkey identities for multi-device apps, with Storacha backup available when recovery matters.</p>
       </div>
       <div class="footer-links">
@@ -389,7 +400,7 @@ footer{
       </div>
     </div>
     <div class="footer-bottom">
-      p2p-passkeys &mdash; MIT License
+      P2Pass &mdash; MIT License
     </div>
   </div>
 </footer>

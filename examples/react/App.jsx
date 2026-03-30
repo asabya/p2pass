@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { StorachaFab } from 'p2p-passkeys/react';
-import { setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2p-passkeys';
+import { P2Pass } from 'p2pass/react';
+import { setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2pass';
 
 export default function App() {
 	const fabRef = useRef(null);
@@ -43,7 +43,7 @@ export default function App() {
 	return (
 		<>
 			<div style={{ margin: 0, minHeight: '100vh', background: '#0f1117' }} />
-			<StorachaFab
+			<P2Pass
 				ref={fabRef}
 				isInitialized={true}
 				entryCount={0}

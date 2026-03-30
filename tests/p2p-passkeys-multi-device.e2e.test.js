@@ -9,7 +9,7 @@ import {
 	waitForWidgetApi
 } from './helpers/e2e.js';
 
-test.describe('P2P Passkeys Multi-Device E2E', () => {
+test.describe('P2Pass Multi-Device E2E', () => {
 	test('creates different DIDs in separate browser contexts', async ({ browser }) => {
 		const contextA = await createContextWithMock(browser, SEED_A);
 		const contextB = await createContextWithMock(browser, SEED_B);
