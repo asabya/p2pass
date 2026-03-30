@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { StorachaFab, setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2p-passkeys';
+	import { P2Pass, setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2pass';
 
 	let orbitdb = $state(null);
 	let libp2p = $state(null);
@@ -116,7 +116,7 @@
 <div style="margin: 0; padding: 0; height: 100vh; background: #0f1117; color: #d4d4d8; font-family: 'JetBrains Mono', 'Fira Code', monospace; display: flex; flex-direction: column;">
 	<!-- Header -->
 	<div style="padding: 0.75rem 1rem; border-bottom: 1px solid #27272a; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
-		<span style="font-size: 0.8rem; color: #71717a;">p2p-passkeys / logs</span>
+		<span style="font-size: 0.8rem; color: #71717a;">P2Pass / logs</span>
 		<button
 			onclick={() => { logs = []; }}
 			style="font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 4px; border: 1px solid #3f3f46; background: transparent; color: #71717a; cursor: pointer;"
@@ -146,7 +146,7 @@
 </div>
 
 <!-- Floating FAB -->
-<StorachaFab
+<P2Pass
 	{orbitdb}
 	{database}
 	{isInitialized}

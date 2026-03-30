@@ -33,7 +33,7 @@ import {
   storeDelegation,
   loadStoredDelegation,
   clearStoredDelegation
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 - `parseDelegation(proofString)` — Parse multibase, base64, or CAR bytes
@@ -79,7 +79,7 @@ import {
   resolveManifest,
   uploadArchiveToIPFS,
   fetchArchiveFromIPFS
-} from 'p2p-passkeys';
+} from 'p2pass';
 ```
 
 ## Storage Hierarchy

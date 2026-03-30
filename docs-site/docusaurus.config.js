@@ -2,7 +2,7 @@
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'p2p-passkeys',
+  title: 'P2Pass',
   tagline: 'P2P Passkey-Based DID Identities with Storacha Backup',
   favicon: 'img/favicon.ico',
 
@@ -47,7 +47,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'p2p-passkeys',
+        title: 'P2Pass',
         items: [
           {
             type: 'docSidebar',
@@ -95,7 +95,7 @@ const config = {
             ],
           },
         ],
-        copyright: 'p2p-passkeys — MIT License',
+        copyright: 'P2Pass — MIT License',
       },
       prism: {
         theme: require('prism-react-renderer').themes.github,

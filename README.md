@@ -1,8 +1,8 @@
-# p2p-passkeys
+# P2Pass
 
-Standalone Svelte component for P2P passkey-based DID identities with [Storacha](https://storacha.network) decentralized backup.
+P2Pass is a standalone Svelte component for P2P passkey-based DID identities with [Storacha](https://storacha.network) decentralized backup.
 
-Drop in `<StorachaFab />` and get:
+Drop in `<P2Pass />` and get:
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
 - OrbitDB backup/restore with progress tracking
@@ -13,17 +13,17 @@ Drop in `<StorachaFab />` and get:
 ## Install
 
 ```bash
-npm install p2p-passkeys
+npm install p2pass
 ```
 
 ## Usage
 
 ```svelte
 <script>
-  import { StorachaFab } from 'p2p-passkeys';
+  import { P2Pass } from 'p2pass';
 </script>
 
-<StorachaFab
+<P2Pass
   {orbitdb}
   {libp2p}
   onAuthenticate={handleAuthenticate}
@@ -34,20 +34,20 @@ npm install p2p-passkeys
 The component handles everything internally:
 1. Click the floating Storacha button (bottom-right)
 2. "Authenticate with Passkey" → biometric prompt → DID created
-3. Two tabs appear: **Storacha** (backup/restore) and **P2P Passkeys** (device linking)
+3. Two tabs appear: **Storacha** (backup/restore) and **P2Pass** (device linking)
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
-5. P2P Passkeys tab shows connection status, peer info, and linked devices
+5. The P2Pass tab shows connection status, peer info, and linked devices
 
 ## React Usage
 
 ```jsx
 import { useRef } from 'react';
-import { StorachaFab } from 'p2p-passkeys/react';
+import { P2Pass } from 'p2pass/react';
 
 function App() {
   const fabRef = useRef(null);
 
-  return <StorachaFab ref={fabRef} preferWorkerMode={true} />;
+  return <P2Pass ref={fabRef} preferWorkerMode={true} />;
 }
 ```
 
@@ -165,7 +165,7 @@ This means the same passkey on any device (via passkey sync) produces the same P
 | Hardware P-256 | High | TPM/Secure Enclave | Per signature |
 | Worker Ed25519 | Medium | Web worker + encrypted localStorage | On init only |
 
-Use `preferWorkerMode={true}` for P2P/OrbitDB identity (required for multi-device). The component auto-detects the best available mode when `preferWorkerMode` is not set.
+Use `preferWorkerMode={true}` for P2Pass/OrbitDB identity (required for multi-device). The component auto-detects the best available mode when `preferWorkerMode` is not set.
 
 ## Props
 
@@ -188,10 +188,10 @@ For React wrappers, `orbitdb`, `database`, and `libp2p` should be updated throug
 
 ## Components
 
-### `StorachaFab`
-Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required.
+### `P2Pass`
+Floating action button (bottom-right) with the Storacha rooster logo. Opens the P2Pass panel as an overlay. Self-contained — no Tailwind or external CSS required.
 
-### `StorachaIntegration`
+### `P2PassPanel`
 The panel component itself. Can be embedded inline instead of as a floating panel.
 
 ## Programmatic API
@@ -200,7 +200,7 @@ The panel component itself. Can be embedded inline instead of as a floating pane
 import {
   IdentityService, createStorachaClient, parseDelegation,
   setupP2PStack, createLibp2pInstance, cleanupP2PStack
-} from 'p2p-passkeys';
+} from 'p2pass';
 
 // Create identity (worker mode for P2P)
 const identity = new IdentityService();
@@ -235,7 +235,7 @@ The Playwright suite covers:
 - widget tab order and tab switching
 - passkey authentication and DID display/copy
 - peer info copy and invalid peer info handling
-- p2p passkeys multi-device flows, including pairing approval and known-device auto-grant
+- P2Pass multi-device flows, including pairing approval and known-device auto-grant
 
 Run the full Chromium E2E suite locally with:
 

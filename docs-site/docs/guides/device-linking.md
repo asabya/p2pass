@@ -30,14 +30,14 @@ sequenceDiagram
 ### Device A (Owner)
 
 1. Authenticate with passkey
-2. Switch to "P2P Passkeys" tab
+2. Switch to the "P2Pass" tab
 3. Click copy button to get peer info JSON
 4. Share peer info with Device B (paste, QR code, etc.)
 
 ### Device B (New Device)
 
 1. Authenticate with passkey
-2. Switch to "P2P Passkeys" tab
+2. Switch to the "P2Pass" tab
 3. Paste Device A's peer info JSON
 4. Click "Link Device"
 5. Wait for Device A to approve
@@ -45,7 +45,7 @@ sequenceDiagram
 ### Programmatic Usage
 
 ```js
-import { MultiDeviceManager } from 'p2p-passkeys';
+import { MultiDeviceManager } from 'p2pass';
 
 const manager = await MultiDeviceManager.createFromExisting({
   credential,

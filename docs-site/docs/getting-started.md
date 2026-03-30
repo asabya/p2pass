@@ -7,7 +7,7 @@ sidebar_position: 2
 ## Installation
 
 ```bash
-npm install p2p-passkeys
+npm install p2pass
 ```
 
 ## Svelte Usage
@@ -16,20 +16,20 @@ The simplest integration is the floating action button:
 
 ```svelte
 <script>
-  import { StorachaFab } from 'p2p-passkeys';
+  import { P2Pass } from 'p2pass';
 </script>
 
-<StorachaFab preferWorkerMode={true} />
+<P2Pass preferWorkerMode={true} />
 ```
 
-For full control, use `StorachaIntegration` directly:
+For full control, use `P2PassPanel` directly:
 
 ```svelte
 <script>
-  import { StorachaIntegration } from 'p2p-passkeys';
+  import { P2PassPanel } from 'p2pass';
 </script>
 
-<StorachaIntegration
+<P2PassPanel
   orbitdb={myOrbitdb}
   libp2p={myLibp2p}
   preferWorkerMode={true}
@@ -43,12 +43,12 @@ For full control, use `StorachaIntegration` directly:
 
 ```jsx
 import { useRef } from 'react';
-import { StorachaFab } from 'p2p-passkeys/react';
+import { P2Pass } from 'p2pass/react';
 
 function App() {
   const fabRef = useRef(null);
 
-  return <StorachaFab ref={fabRef} preferWorkerMode={true} />;
+  return <P2Pass ref={fabRef} preferWorkerMode={true} />;
 }
 ```
 
@@ -94,7 +94,7 @@ For the full experience with P2P connectivity:
 
 ```svelte
 <script>
-  import { StorachaFab, setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2p-passkeys';
+  import { P2Pass, setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2pass';
   import { onMount } from 'svelte';
 
   let orbitdb = $state(null);
@@ -117,7 +117,7 @@ For the full experience with P2P connectivity:
   }
 </script>
 
-<StorachaFab
+<P2Pass
   {orbitdb}
   {libp2p}
   preferWorkerMode={true}

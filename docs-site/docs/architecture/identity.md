@@ -31,7 +31,7 @@ flowchart TD
 ## IdentityService API
 
 ```js
-import { IdentityService } from 'p2p-passkeys';
+import { IdentityService } from 'p2pass';
 
 const identity = new IdentityService();
 

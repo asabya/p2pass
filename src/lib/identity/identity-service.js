@@ -428,7 +428,7 @@ export class IdentityService {
 		const createOptions = {
 			publicKey: {
 				rp: {
-					name: 'P2P Passkeys',
+					name: 'P2Pass',
 					id: globalThis.location?.hostname || 'localhost'
 				},
 				user: {

@@ -70,7 +70,7 @@
 	// Tab state
 	let activeTab = $state('passkeys'); // 'storacha' | 'passkeys'
 
-	// P2P Passkeys state
+	// P2Pass state
 	let devices = $state([]);
 	let peerInfo = $state(null);
 	let linkInput = $state('');
@@ -1295,7 +1295,7 @@
 						data-testid="tab-passkeys"
 						style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab === 'passkeys' ? 'linear-gradient(135deg, #E91315, #FFC83F)' : 'transparent'}; color: {activeTab === 'passkeys' ? '#fff' : '#6B7280'}; box-shadow: {activeTab === 'passkeys' ? '0 2px 8px rgba(233, 19, 21, 0.3)' : 'none'};"
 					>
-						P2P Passkeys
+						P2Pass
 					</button>
 					<button
 						onclick={() => handleTabSwitch('storacha')}
@@ -1397,7 +1397,7 @@
 						data-testid="tab-passkeys"
 						style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 200ms; background: {activeTab === 'passkeys' ? 'linear-gradient(135deg, #E91315, #FFC83F)' : 'transparent'}; color: {activeTab === 'passkeys' ? '#fff' : '#6B7280'}; box-shadow: {activeTab === 'passkeys' ? '0 2px 8px rgba(233, 19, 21, 0.3)' : 'none'};"
 					>
-						P2P Passkeys
+						P2Pass
 					</button>
 					<button
 						onclick={() => handleTabSwitch('storacha')}

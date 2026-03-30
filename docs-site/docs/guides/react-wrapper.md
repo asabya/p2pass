@@ -22,7 +22,7 @@ React ref methods → bridge.update() → live service updates
 ## Installation
 
 ```bash
-npm install p2p-passkeys
+npm install p2pass
 ```
 
 Your Vite config needs both React and Svelte plugins:
@@ -52,8 +52,8 @@ export default {
 
 ```jsx
 import { useEffect, useRef } from 'react';
-import { StorachaFab } from 'p2p-passkeys/react';
-import { setupP2PStack, createLibp2pInstance } from 'p2p-passkeys';
+import { P2Pass } from 'p2pass/react';
+import { setupP2PStack, createLibp2pInstance } from 'p2pass';
 
 function App() {
   const fabRef = useRef(null);
@@ -82,7 +82,7 @@ function App() {
   }
 
   return (
-    <StorachaFab
+    <P2Pass
       ref={fabRef}
       preferWorkerMode={true}
       onAuthenticate={handleAuthenticate}
@@ -115,16 +115,16 @@ Use regular React props only for plain values and callbacks like:
 
 ## Available Components
 
-### `StorachaFab`
+### `P2Pass`
 
 Floating action button with the full Storacha integration panel.
 
-### `StorachaIntegration`
+### `P2PassPanel`
 
 The integration panel without the FAB wrapper. Useful when you want to embed the panel in your own layout.
 
 ```jsx
-import { StorachaIntegration } from 'p2p-passkeys/react';
+import { P2PassPanel } from 'p2pass/react';
 ```
 
 ## How Props Update

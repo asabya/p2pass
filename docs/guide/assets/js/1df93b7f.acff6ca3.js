@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkp2pass_docs=globalThis.webpackChunkp2pass_docs||[]).push([[4583],{6866(s,p,a){a.r(p),a.d(p,{default:()=>c});a(6540);var o=a(6347),u=a(4848);function c(){return(0,u.jsx)(o.rd,{to:"/p2p-passkeys/guide/docs/intro"})}}}]);

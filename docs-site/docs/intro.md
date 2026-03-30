@@ -4,9 +4,9 @@ sidebar_position: 1
 
 # Introduction
 
-**p2p-passkeys** is a standalone Svelte component (with React wrapper) for P2P passkey-based DID identities with Storacha decentralized backup.
+**P2Pass** is a standalone Svelte component (with React wrapper) for P2P passkey-based DID identities with Storacha decentralized backup.
 
-Drop in `<StorachaFab />` and get:
+Drop in `<P2Pass />` and get:
 - Passkey authentication via WebAuthn
 - UCAN delegation and Storacha backup/restore
 - OrbitDB device registry for multi-device sync
@@ -24,8 +24,8 @@ Devices discover each other over libp2p and pair using an approval-based protoco
 UCAN-only authentication for Storacha storage. Backup your OrbitDB databases and device registry. IPNS recovery manifest enables cross-device identity restoration without a central server.
 
 ### Framework Support
-- **Svelte**: Native `StorachaFab` and `StorachaIntegration` components
-- **React**: Thin wrapper components that mount the Svelte widget via `p2p-passkeys/react`
+- **Svelte**: Native `P2Pass` and `P2PassPanel` components
+- **React**: Thin wrapper components that mount the Svelte widget via `p2pass/react`
 
 ## Architecture Overview
 
@@ -43,5 +43,5 @@ graph TD
 
 ## Source
 
-- GitHub: [asabya/p2p-passkeys](https://github.com/asabya/p2p-passkeys)
+- GitHub: [P2Pass repository](https://github.com/asabya/p2p-passkeys)
 - Issue tracker: [NiKrause/simple-todo#24](https://github.com/NiKrause/simple-todo/issues/24)

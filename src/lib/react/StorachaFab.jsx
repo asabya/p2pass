@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { createFab } from './bridge.svelte.js';
 
-export const StorachaFab = forwardRef(function StorachaFab({
+export const P2Pass = forwardRef(function P2Pass({
 	isInitialized = false,
 	entryCount = 0,
 	databaseName = 'restored-db',
