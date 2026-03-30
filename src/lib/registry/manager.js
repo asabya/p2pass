@@ -1,8 +1,9 @@
 /**
- * MultiDeviceManager - Unified class for multi-device OrbitDB with WebAuthn
+ * Coordinates the multi-device OrbitDB registry, libp2p link-device protocol, and device registration.
  *
- * Copied from orbitdb-identity-provider-webauthn-did/src/multi-device/manager.js
- * with imports adapted for the @le-space/p2pass package.
+ * Wraps `openDeviceRegistry`, pairing (`LINK_DEVICE_PROTOCOL`), and sync so browsers can share one registry DB address.
+ *
+ * @module registry/manager
  */
 
 import {

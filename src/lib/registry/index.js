@@ -1,7 +1,9 @@
 /**
- * Registry — Multi-device linking, credential storage, and UCAN delegation sync.
+ * Registry subpackage — multi-device linking, credential storage, and UCAN delegation sync.
  *
- * Re-exports device registry, pairing protocol, and manager.
+ * Re-exports device registry helpers, pairing protocol, and `MultiDeviceManager`.
+ *
+ * @module registry
  */
 
 // Device registry + extended storage (delegations, archives, keypairs)

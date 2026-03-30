@@ -1,4 +1,10 @@
 /**
+ * Backup and restore the multi-device registry database through `orbitdb-storacha-bridge`.
+ *
+ * @module backup/registry-backup
+ */
+
+/**
  * Backup registry DB to Storacha via bridge.
  * @param {Object} bridge - Initialized OrbitDBStorachaBridge instance
  * @param {Object} orbitdb - OrbitDB instance

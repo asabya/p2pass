@@ -1,8 +1,9 @@
 /**
- * Storacha Backup Utilities for OrbitDB
+ * Storacha backup helpers: client bootstrap, space listing, usage summaries, and file listing.
  *
- * Decoupled from any specific app - accepts orbitdb/database instances as parameters.
- * Uses the orbitdb-storacha-bridge library from npm.
+ * Decoupled from UI — callers pass Storacha credentials or an authenticated client. Uses `orbitdb-storacha-bridge` where applicable.
+ *
+ * @module ui/storacha-backup
  */
 
 import { listStorachaSpaceFiles } from 'orbitdb-storacha-bridge';
@@ -13,7 +14,11 @@ import * as Proof from '@storacha/client/proof';
 import * as Delegation from '@ucanto/core/delegation';
 
 /**
- * Initialize Storacha client with credentials (key + proof)
+ * Build a Storacha client from a stored principal key string and proof CAR/string.
+ *
+ * @param {string} storachaKey - Ed25519 principal key material (Signer.parse)
+ * @param {string} storachaProof - Delegation / space proof string
+ * @returns {Promise<import('@storacha/client').Client>}
  */
 export async function initializeStorachaClient(storachaKey, storachaProof) {
   const principal = Signer.parse(storachaKey);
@@ -28,7 +33,11 @@ export async function initializeStorachaClient(storachaKey, storachaProof) {
 }
 
 /**
- * Initialize Storacha client with UCAN delegation
+ * Build a Storacha client from a base64 UCAN token and JSON recipient key archive.
+ *
+ * @param {string} ucanToken - Base64-encoded delegation bytes
+ * @param {string} recipientKey - JSON string describing recipient `Signer` material
+ * @returns {Promise<import('@storacha/client').Client>}
  */
 export async function initializeStorachaClientWithUCAN(ucanToken, recipientKey) {
   const recipientKeyData = JSON.parse(recipientKey);
@@ -62,7 +71,10 @@ export async function initializeStorachaClientWithUCAN(ucanToken, recipientKey) 
 }
 
 /**
- * List spaces for authenticated client
+ * List Storacha spaces visible to an authenticated client (current space first, then account spaces).
+ *
+ * @param {import('@storacha/client').Client} client
+ * @returns {Promise<Array<{ did: string, name: string, registered: boolean, current?: boolean }>>}
  */
 export async function listSpaces(client) {
   const currentSpace = client.currentSpace();
@@ -104,7 +116,11 @@ export async function listSpaces(client) {
 }
 
 /**
- * Get space usage information
+ * Summarize upload activity in the current space (`upload/list` capability).
+ *
+ * @param {import('@storacha/client').Client} client
+ * @param {boolean} [detailed=false] - When true, sample uploads to classify backup vs block CARs (bounded work)
+ * @returns {Promise<object>} Totals, date range, and optional per-CID samples
  */
 export async function getSpaceUsage(client, detailed = false) {
   const result = await client.capability.upload.list({ size: 1000 });
@@ -205,7 +221,11 @@ export async function getSpaceUsage(client, detailed = false) {
 }
 
 /**
- * List files in Storacha space
+ * List files in the Storacha space associated with the given key + proof (delegation).
+ *
+ * @param {string} storachaKey
+ * @param {string} storachaProof
+ * @returns {Promise<unknown>} Result shape from `orbitdb-storacha-bridge` `listStorachaSpaceFiles`
  */
 export async function listStorachaFiles(storachaKey, storachaProof) {
   const spaceFiles = await listStorachaSpaceFiles({

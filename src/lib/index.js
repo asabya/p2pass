@@ -1,4 +1,9 @@
-// @le-space/p2pass — public API
+/**
+ * @fileoverview Public package entry — re-exports UI, identity, registry, P2P, recovery, and Storacha helpers.
+ * @module @le-space/p2pass
+ */
+
+/** @type {string} Published package version (kept in sync via `scripts/sync-version.mjs`). */
 export const VERSION = '0.3.1';
 
 import StorachaIntegration from './ui/StorachaIntegration.svelte';

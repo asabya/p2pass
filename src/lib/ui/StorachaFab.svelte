@@ -1,4 +1,8 @@
 <script>
+  /**
+   * Floating Storacha-branded button that toggles the passkey / P2P / Storacha panel (`StorachaIntegration`).
+   * @component
+   */
   import StorachaIntegration from './StorachaIntegration.svelte';
 
   let {

@@ -1,7 +1,9 @@
 /**
  * P2P stack setup — libp2p + Helia + OrbitDB for browser environments.
  *
- * Relay/bootstrap config ported from NiKrause/simple-todo/src/lib/libp2p-config.js
+ * Relay/bootstrap peers are typically read from `import.meta.env.VITE_BOOTSTRAP_PEERS` (comma-separated multiaddrs).
+ *
+ * @module p2p/setup
  */
 
 import { createOrbitDB, Identities, useIdentityProvider } from '@orbitdb/core';

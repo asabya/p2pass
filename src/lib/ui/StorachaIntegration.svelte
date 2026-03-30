@@ -1,4 +1,8 @@
 <script>
+  /**
+   * Full-screen overlay panel: signing modes, passkey auth, device linking, Storacha delegation, backup/restore.
+   * @component
+   */
   import { onMount } from 'svelte';
   import {
     readSigningPreferenceFromStorage,

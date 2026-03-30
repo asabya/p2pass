@@ -1,6 +1,9 @@
 /**
- * User-selectable signing strategy for OrbitDB WebAuthn DID (hardware Ed25519 / hardware P-256 / worker Ed25519).
+ * User-selectable signing strategy for OrbitDB WebAuthn DID (hardware Ed25519, hardware P-256, or worker Ed25519).
+ *
  * Maps to {@link IdentityService} `initialize` options and WebAuthn `forceP256` in the upstream provider.
+ *
+ * @module identity/signing-preference
  */
 
 export const SIGNING_PREFERENCE_STORAGE_KEY = 'p2p_passkeys_signing_preference';

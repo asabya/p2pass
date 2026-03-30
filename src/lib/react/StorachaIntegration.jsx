@@ -1,3 +1,6 @@
+/**
+ * React host for the Svelte `StorachaIntegration` panel (inline embedding without the FAB).
+ */
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { createIntegration } from './bridge.svelte.js';
 

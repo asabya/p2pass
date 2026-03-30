@@ -1,18 +1,17 @@
 /**
- * Multi-Device Registry for OrbitDB WebAuthn
+ * Multi-device OrbitDB key/value registry for WebAuthn-backed identities.
  *
  * Manages a KV store of registered devices, UCAN delegations, and encrypted
- * Ed25519 archives using OrbitDBAccessController so write access can be
- * dynamically granted to new devices.
+ * Ed25519 archives using `OrbitDBAccessController` so write access can be
+ * granted to linked devices.
  *
  * Key prefixes:
- *   (none)          — device entries (keyed by sha256(credentialId))
- *   delegation:     — UCAN delegation proofs
- *   archive:        — encrypted Ed25519 archives
- *   keypair:        — Ed25519 keypair metadata (publicKey + DID, no private key)
+ * - _(none)_ — device entries (keyed by SHA-256 of `credential_id`)
+ * - `delegation:` — UCAN delegation proofs
+ * - `archive:` — encrypted Ed25519 archives
+ * - `keypair:` — Ed25519 keypair metadata (public key + DID only)
  *
- * Copied from orbitdb-identity-provider-webauthn-did/src/multi-device/device-registry.js
- * and extended with delegation + archive + keypair storage.
+ * @module registry/device-registry
  */
 
 import { OrbitDBAccessController } from '@orbitdb/core';

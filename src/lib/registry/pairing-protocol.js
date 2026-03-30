@@ -1,13 +1,11 @@
 /**
- * libp2p Pairing Protocol for Multi-Device Linking
+ * libp2p pairing for multi-device linking over `/orbitdb/link-device/1.0.0`.
  *
- * Protocol: /orbitdb/link-device/1.0.0
+ * **Message flow**
+ * - Device B → A: `{ type: 'request', identity: { … } }`
+ * - Device A → B: `{ type: 'granted', orbitdbAddress }` or `{ type: 'rejected', reason }`
  *
- * Message flow:
- *   Device B → Device A: { type: 'request', identity: { id, credentialId, deviceLabel, passkeyKind?, ... } }
- *   Device A → Device B: { type: 'granted', orbitdbAddress } | { type: 'rejected', reason }
- *
- * Copied from orbitdb-identity-provider-webauthn-did/src/multi-device/pairing-protocol.js
+ * @module registry/pairing-protocol
  */
 
 import { lpStream } from 'it-length-prefixed-stream';
@@ -72,14 +70,11 @@ const LINK_DEVICE_HANDLER_OPTS = {
 };
 
 /**
- * Order dial candidates so cross-browser linking usually tries stable paths first:
- * public DNS + WSS, then WS/TCP via relay; webrtc-direct and LAN-only last.
- * @param {import('@multiformats/multiaddr').Multiaddr[]} parsed
- */
-/**
  * Strip WebRTC-based multiaddrs from pairing. Browser WebRTC-direct dials often hit
- * "signal timed out" across NATs; relay + WSS/WS is reliable for link-device.
+ * "signal timed out" across NATs; relay + WSS/WS is more reliable for link-device.
+ *
  * @param {import('@multiformats/multiaddr').Multiaddr[]} parsed
+ * @returns {import('@multiformats/multiaddr').Multiaddr[]}
  */
 export function filterPairingDialMultiaddrs(parsed) {
   const noWebrtc = parsed.filter((ma) => !ma.toString().toLowerCase().includes('/webrtc'));
@@ -91,6 +86,13 @@ export function filterPairingDialMultiaddrs(parsed) {
   return noWebrtc.length > 0 ? noWebrtc : parsed;
 }
 
+/**
+ * Order dial candidates so cross-browser linking usually tries stable paths first
+ * (public DNS + WSS, then WS/TCP via relay; WebRTC-direct and LAN-only last).
+ *
+ * @param {import('@multiformats/multiaddr').Multiaddr[]} parsed
+ * @returns {import('@multiformats/multiaddr').Multiaddr[]}
+ */
 export function sortPairingMultiaddrs(parsed) {
   const score = (ma) => {
     const s = ma.toString().toLowerCase();

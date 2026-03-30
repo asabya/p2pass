@@ -1,6 +1,7 @@
 /**
- * Signing mode detection — auto-detects hardware vs worker WebAuthn mode.
- * Ported from ucan-upload-wall's ucan-delegation.ts mode detection logic.
+ * Signing mode detection — prefers hardware Ed25519 / P-256 when possible, otherwise worker Ed25519 from registry.
+ *
+ * @module identity/mode-detector
  */
 
 import {

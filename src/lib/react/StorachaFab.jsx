@@ -1,3 +1,8 @@
+/**
+ * React host for the Svelte `StorachaFab` — floating passkey / Storacha UI.
+ *
+ * Prefer the Svelte component when possible; this wrapper exists for React apps.
+ */
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { createFab } from './bridge.svelte.js';
 

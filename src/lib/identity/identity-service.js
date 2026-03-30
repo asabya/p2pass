@@ -1,9 +1,9 @@
 /**
- * Identity service — orchestrates WebAuthn passkey auth with auto mode detection.
- * Combines hardware signer and worker Ed25519 flows.
+ * Identity service — WebAuthn passkeys, hardware vs worker signing, and encrypted archive/IPNS recovery.
  *
- * Credential data is stored in an OrbitDB registry DB when available.
- * Falls back to in-memory storage until setRegistry() is called.
+ * Credential data is stored in an OrbitDB registry DB when available; otherwise held in memory until `setRegistry()` runs.
+ *
+ * @module identity/identity-service
  */
 
 import {
@@ -97,6 +97,9 @@ export function hasLocalPasskeyHint() {
   return false;
 }
 
+/**
+ * Orchestrates `initialize`, Storacha/UCAN principals, registry binding, and recovery flows.
+ */
 export class IdentityService {
   #mode = null;
   #did = null;

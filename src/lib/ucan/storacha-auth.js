@@ -1,9 +1,9 @@
 /**
- * Storacha auth via UCAN delegation.
- * Replaces the old key+proof credential flow.
+ * Storacha auth via UCAN delegation (replaces legacy key+proof flows).
  *
- * Delegation storage prefers OrbitDB registry DB when available,
- * falls back to localStorage.
+ * Delegation persistence prefers the OrbitDB registry DB when available; otherwise uses `localStorage`.
+ *
+ * @module ucan/storacha-auth
  */
 
 import * as Client from '@storacha/client';
