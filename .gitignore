@@ -37,3 +37,5 @@ e2e/.storacha-e2e.json
 relay/test-relay-datastore/
 test-results/
 playwright-report/
+
+docs/superpowers/
