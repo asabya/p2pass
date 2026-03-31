@@ -16,13 +16,14 @@ const webServerStdio =
 
 export default defineConfig({
   forbidOnly: !!process.env.CI,
-  /** Without this, a test that fails then passes on retry exits 0 (“flaky”) and GitHub Actions stays green. */
+  /** Without this, fail-then-pass attempts exit 0 (“flaky”) and CI stays green. Use with CI retries below. */
   failOnFlakyTests: !!process.env.CI,
   timeout: 180_000,
   expect: { timeout: 30_000 },
   reporter,
   outputDir: 'test-results/',
-  retries: process.env.CI ? 1 : 0,
+  /** CI: up to 4 total attempts per test (initial + 3 retries) for OrbitDB / P2P flake. */
+  retries: process.env.CI ? 3 : 0,
   workers: 1,
   projects: [
     {
