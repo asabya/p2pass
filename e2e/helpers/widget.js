@@ -122,8 +122,8 @@ export async function waitForWidgetApi(page, timeout = 30000) {
 
 export async function authenticate(page) {
   await openWidget(page);
-  await page.getByTestId('authenticate-passkey').click();
-  await expect(page.getByTestId('did-display')).toBeVisible({ timeout: 120000 });
+  await page.getByTestId('storacha-passkey-primary').click();
+  await expect(page.getByTestId('storacha-your-did')).toBeVisible({ timeout: 120000 });
   await page.waitForFunction(
     () => {
       const state = window.__p2pPasskeysWidget?.getState?.();

@@ -338,9 +338,14 @@ export class MultiDeviceManager {
     return removeDeviceEntry(this._devicesDb, credentialId);
   }
 
-  async processIncomingPairingRequest(requestMsg) {
+  /**
+   * @param {object} requestMsg
+   * @param {{ forcedDecision?: 'granted' | 'rejected' }} [options] — skip UI / {@link this._onPairingRequest} (Playwright e2e injection).
+   */
+  async processIncomingPairingRequest(requestMsg, options = {}) {
     if (!this._devicesDb) throw new Error('Device registry not initialized');
     const { identity } = requestMsg;
+    const { forcedDecision } = options;
 
     const isKnown =
       (await getDeviceByCredentialId(this._devicesDb, identity.credentialId)) ||
@@ -350,7 +355,12 @@ export class MultiDeviceManager {
       return { type: 'granted', orbitdbAddress: this._dbAddress };
     }
 
-    const decision = this._onPairingRequest ? await this._onPairingRequest(requestMsg) : 'granted';
+    const decision =
+      forcedDecision !== undefined
+        ? forcedDecision
+        : this._onPairingRequest
+          ? await this._onPairingRequest(requestMsg)
+          : 'granted';
 
     if (decision === 'granted') {
       await grantDeviceWriteAccess(this._devicesDb, identity.id);

@@ -238,6 +238,11 @@
   let deviceManagerInitInProgress = false;
   let pendingPairRequest = $state(null);
   let pendingPairResolve = $state(null);
+  /** Playwright: injected pairing — Approve/Deny calls {@link MultiDeviceManager#processIncomingPairingRequest} with forcedDecision. */
+  let pairingInjectedFromE2e = $state(false);
+  let pairingE2eResultPromise = /** @type {Promise<unknown> | null} */ (null);
+  let pairingE2eResultResolve = /** @type {((v: unknown) => void) | null} */ (null);
+  let pairingE2eResultReject = /** @type {((e: unknown) => void) | null} */ (null);
 
   // Recovery state
   let isRecovering = $state(false);
@@ -812,17 +817,17 @@
   }
 
   function handleCopyPeerInfo() {
-    let id = null;
     if (deviceManager) {
       peerInfo = deviceManager.getPeerInfo();
-      id = peerInfo?.peerId;
     } else if (libp2p) {
-      id = libp2p.peerId.toString();
+      const id = libp2p.peerId.toString();
       peerInfo = { peerId: id, multiaddrs: libp2p.getMultiaddrs().map((ma) => ma.toString()) };
+    } else {
+      return;
     }
-    if (!id) return;
-    navigator.clipboard.writeText(id);
-    showMessage('Peer ID copied — paste it on the other device after both are connected via P2P.');
+    if (!peerInfo?.peerId) return;
+    navigator.clipboard.writeText(JSON.stringify(peerInfo));
+    showMessage('Peer info copied to clipboard!');
   }
 
   /** Plain peer id, or legacy JSON `{ "peerId", "multiaddrs"? }`. */
@@ -942,7 +947,50 @@
     }
   }
 
-  function handlePairDecision(decision) {
+  function beginInjectedPairingRequest(/** @type {unknown} */ payload) {
+    pairingInjectedFromE2e = true;
+    showStoracha = true;
+    activeTab = 'passkeys';
+    onPairingPromptOpen();
+    pendingPairRequest = payload;
+    pairingE2eResultPromise = new Promise((resolve, reject) => {
+      pairingE2eResultResolve = resolve;
+      pairingE2eResultReject = reject;
+    });
+  }
+
+  function waitForPendingPairingResultFromE2e() {
+    return pairingE2eResultPromise ?? Promise.reject(new Error('No pending injected pairing'));
+  }
+
+  async function handlePairDecision(/** @type {string} */ decision) {
+    if (pairingInjectedFromE2e && pendingPairRequest) {
+      const req = pendingPairRequest;
+      pendingPairRequest = null;
+      pairingInjectedFromE2e = false;
+      const resolve = pairingE2eResultResolve;
+      const reject = pairingE2eResultReject;
+      pairingE2eResultResolve = null;
+      pairingE2eResultReject = null;
+      pairingE2eResultPromise = null;
+      const forced = decision === 'granted' ? 'granted' : 'rejected';
+      try {
+        if (!deviceManager) {
+          throw new Error('Device manager not ready');
+        }
+        const result = await deviceManager.processIncomingPairingRequest(req, { forcedDecision: forced });
+        try {
+          devices = await deviceManager.listDevices();
+        } catch {
+          /* list refresh best-effort */
+        }
+        resolve?.(result);
+      } catch (err) {
+        reject?.(err);
+      }
+      return;
+    }
+
     if (pendingPairResolve) {
       pairingFlow('ALICE', '[UI] user clicked pairing decision — resolving promise to handler', {
         decision,
@@ -1155,6 +1203,30 @@
     return space.name === 'Unnamed Space' ? `Space ${space.did.slice(-8)}` : space.name;
   }
 
+  onMount(() => {
+    if (typeof window === 'undefined') return;
+    window.__p2pPasskeysWidget = {
+      getState: () => ({
+        activeTab,
+        did: signingMode?.did ?? null,
+        deviceCount: devices.length,
+      }),
+      listDevices: async () => {
+        if (!deviceManager) return [];
+        return deviceManager.listDevices();
+      },
+      beginIncomingPairingRequest: beginInjectedPairingRequest,
+      waitForPendingPairingResult: waitForPendingPairingResultFromE2e,
+      simulateIncomingPairingRequest: async (payload, outcome) => {
+        if (!deviceManager) throw new Error('Device manager not ready');
+        return deviceManager.processIncomingPairingRequest(payload, { forcedDecision: outcome });
+      },
+    };
+    return () => {
+      delete window.__p2pPasskeysWidget;
+    };
+  });
+
   onMount(async () => {
     localPasskeyDetected = hasLocalPasskeyHint();
 
@@ -1216,14 +1288,14 @@
       <div style="display: flex; gap: 0.5rem;">
         <button
           data-testid="storacha-pairing-approve"
-          onclick={() => handlePairDecision('granted')}
+          onclick={() => void handlePairDecision('granted')}
           style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
         >
           Approve
         </button>
         <button
           data-testid="storacha-pairing-deny"
-          onclick={() => handlePairDecision('rejected')}
+          onclick={() => void handlePairDecision('rejected')}
           style="flex: 1; padding: 0.5rem 1rem; border-radius: 0.375rem; background: transparent; color: #dc2626; border: 1px solid #dc2626; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem;"
         >
           Deny
@@ -1255,6 +1327,8 @@
           : 'N/A'}
       </code>
       <button
+        type="button"
+        data-testid="storacha-copy-did"
         class="storacha-btn-icon"
         onclick={() => {
           if (signingMode?.did) {
@@ -1335,6 +1409,7 @@
         style="display: flex; align-items: center; gap: 0.25rem; background: #FFC83F; padding: 0.125rem 0.5rem; border-radius: 9999px;"
       >
         <span
+          data-testid="storacha-linked-devices-count"
           style="font-size: 0.7rem; font-weight: 700; color: #111827; font-family: 'DM Mono', monospace;"
           >{devices.length}</span
         >

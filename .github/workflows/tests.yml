@@ -42,9 +42,8 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
-      # Full suite: npm run test:e2e
       - name: End-to-end tests
-        run: npx playwright test e2e/link-devices.spec.js e2e/recovery-worker.spec.js --project=e2e
+        run: npm run test:e2e
         env:
           CI: true
           E2E_SIGNING_MODE: ${{ matrix.signing_mode }}

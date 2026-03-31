@@ -60,7 +60,7 @@ test.describe('P2Pass Multi-Device E2E', () => {
       await expect(pageA.getByText('Device Pairing Request')).toBeVisible();
       await expect(pageA.getByText('Device B (Playwright)')).toBeVisible();
 
-      await pageA.getByTestId('approve-pairing').click();
+      await pageA.getByTestId('storacha-pairing-approve').click();
 
       const result = await pageA.evaluate(() =>
         window.__p2pPasskeysWidget.waitForPendingPairingResult()

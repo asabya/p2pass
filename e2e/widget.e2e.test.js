@@ -16,8 +16,8 @@ test.describe('Widget E2E', () => {
     try {
       await authenticate(page);
 
-      const passkeysTab = page.getByTestId('tab-passkeys').first();
-      const storachaTab = page.getByTestId('tab-storacha').first();
+      const passkeysTab = page.getByTestId('storacha-tab-passkeys').first();
+      const storachaTab = page.getByTestId('storacha-tab-storacha').first();
       const passkeysBox = await passkeysTab.boundingBox();
       const storachaBox = await storachaTab.boundingBox();
 
@@ -40,13 +40,13 @@ test.describe('Widget E2E', () => {
     try {
       await authenticate(page);
 
-      await page.getByTestId('tab-storacha').first().click();
+      await page.getByTestId('storacha-tab-storacha').first().click();
       await expect(page.getByText('Import UCAN Delegation')).toBeVisible();
       await expect(page.getByText('Linked Devices')).toBeHidden();
 
-      await page.getByTestId('tab-passkeys').first().click();
+      await page.getByTestId('storacha-tab-passkeys').first().click();
       await expect(page.getByText('Linked Devices')).toBeVisible();
-      await expect(page.getByTestId('link-device-button').first()).toBeVisible();
+      await expect(page.getByTestId('storacha-link-device-submit').first()).toBeVisible();
     } finally {
       await context.close().catch(() => {});
     }
@@ -59,10 +59,13 @@ test.describe('Widget E2E', () => {
     try {
       await authenticate(page);
 
-      const did = await page.getByTestId('did-display').getAttribute('data-full-did');
+      const did = await page
+        .getByTestId('storacha-your-did')
+        .first()
+        .getAttribute('data-storacha-did-full');
       expect(did).toMatch(/^did:key:/);
 
-      await page.getByTestId('copy-did').click();
+      await page.getByTestId('storacha-copy-did').first().click();
       await expect(page.getByText('DID copied to clipboard!')).toBeVisible();
       await expect.poll(() => readClipboard(page)).toBe(did);
     } finally {
@@ -78,13 +81,13 @@ test.describe('Widget E2E', () => {
       await authenticate(page);
       await waitForDeviceCount(page, 1);
 
-      await expect(page.getByTestId('linked-devices-count').last()).toContainText('1');
+      await expect(page.getByTestId('storacha-linked-devices-count').last()).toContainText('1');
 
       const state = await getWidgetState(page);
       expect(state.did).toMatch(/^did:key:/);
       expect(state.deviceCount).toBeGreaterThanOrEqual(1);
 
-      await page.getByTestId('copy-peer-info').last().click();
+      await page.getByTestId('storacha-copy-peer-info').last().click();
       await expect(page.getByText('Peer info copied to clipboard!')).toBeVisible();
 
       const clipboardText = await readClipboard(page);
@@ -103,8 +106,8 @@ test.describe('Widget E2E', () => {
     try {
       await authenticate(page);
 
-      await page.getByTestId('link-peer-info-input').last().fill('{invalid json');
-      await page.getByTestId('link-device-button').last().click();
+      await page.getByTestId('storacha-link-peer-input').last().fill('{invalid json');
+      await page.getByTestId('storacha-link-device-submit').last().click();
       await expect(page.getByText(/Failed to link:/)).toBeVisible();
     } finally {
       await context.close().catch(() => {});
