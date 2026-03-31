@@ -26,18 +26,12 @@ jobs:
         run: npm test
 
   e2e:
-    name: E2E (${{ matrix.signing_mode }})
+    name: E2E (sequential signing modes)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        signing_mode: [worker, hardware-ed25519, hardware-p256]
+    # Three full Playwright runs (worker + hardware-ed25519 + hardware-p256); avoid matrix parallel load.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-
-      - name: Signing mode for this matrix job
-        run: echo "E2E_SIGNING_MODE=${{ matrix.signing_mode }}"
 
       - uses: actions/setup-node@v4
         with:
@@ -50,11 +44,23 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      # Uses playwright.config.js reporters on GITHUB_ACTIONS: github + line (do not pass only --reporter=github — it hides per-test lines).
-      - name: Run Playwright E2E suite (${{ matrix.signing_mode }})
+      - name: Run Playwright E2E (worker)
         run: npm run test:e2e
         env:
           CI: true
-          E2E_SIGNING_MODE: ${{ matrix.signing_mode }}
-          # Optional: repo secret so recovery-worker (b) IPNS/Storacha path runs in CI (skipped if unset).
+          E2E_SIGNING_MODE: worker
+          E2E_STORACHA_DELEGATION: ${{ secrets.E2E_STORACHA_DELEGATION }}
+
+      - name: Run Playwright E2E (hardware-ed25519)
+        run: npm run test:e2e
+        env:
+          CI: true
+          E2E_SIGNING_MODE: hardware-ed25519
+          E2E_STORACHA_DELEGATION: ${{ secrets.E2E_STORACHA_DELEGATION }}
+
+      - name: Run Playwright E2E (hardware-p256)
+        run: npm run test:e2e
+        env:
+          CI: true
+          E2E_SIGNING_MODE: hardware-p256
           E2E_STORACHA_DELEGATION: ${{ secrets.E2E_STORACHA_DELEGATION }}
