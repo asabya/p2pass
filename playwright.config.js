@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+if (process.env.E2E_SIGNING_MODE) {
+  console.log(`[playwright] E2E_SIGNING_MODE=${process.env.E2E_SIGNING_MODE}`);
+}
+
 const widgetPort = process.env.PLAYWRIGHT_PORT || '4173';
 const widgetBaseURL = `http://127.0.0.1:${widgetPort}`;
 

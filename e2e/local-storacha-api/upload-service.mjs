@@ -133,6 +133,8 @@ export async function loadUploadApiTestContext() {
  */
 export async function refreshExternalServiceProofs(context) {
   const expiration = Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 60 * 60;
+  const AssertCaps = await importFromWeb('@storacha/capabilities/assert');
+
   const updateProof = async (service, delegateFn, label) => {
     if (!service?.invocationConfig) {
       return;
@@ -156,7 +158,6 @@ export async function refreshExternalServiceProofs(context) {
   };
 
   if (context?.indexingService) {
-    const AssertCaps = await importFromWeb('@storacha/capabilities/assert');
     await updateProof(
       context.indexingService,
       (options) => AssertCaps.assert.delegate(options),
@@ -165,10 +166,9 @@ export async function refreshExternalServiceProofs(context) {
   }
 
   if (context?.claimsService) {
-    const { Assert } = await importFromWeb('@web3-storage/content-claims/capability');
     await updateProof(
       context.claimsService,
-      (options) => Assert.assert.delegate(options),
+      (options) => AssertCaps.assert.delegate(options),
       'claims service'
     );
   }

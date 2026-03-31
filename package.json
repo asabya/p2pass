@@ -100,7 +100,6 @@
     "@sveltejs/vite-plugin-svelte": "^6.1.4",
     "@tailwindcss/vite": "^4.1.17",
     "@vitejs/plugin-react": "^4.3.0",
-    "@web3-storage/sigv4": "^1.0.2",
     "eslint": "^10.1.0",
     "eslint-plugin-svelte": "^3.16.0",
     "globals": "^17.4.0",
@@ -159,7 +158,9 @@
     "@ucanto/core": "npm:@le-space/ucanto-core@^10.5.1",
     "@ucanto/principal": "npm:@le-space/ucanto-principal@^9.1.2",
     "@ucanto/client": "npm:@le-space/ucanto-client@^9.1.1",
-    "@ucanto/validator": "npm:@le-space/ucanto-validator@^10.1.1"
+    "@ucanto/validator": "npm:@le-space/ucanto-validator@^10.1.1",
+    "@web3-storage/did-mailto": "npm:@storacha/did-mailto@^1.0.2",
+    "@web3-storage/blob-index": "npm:@storacha/blob-index@^1.2.9"
   },
   "engines": {
     "node": ">=22"

@@ -26,6 +26,7 @@ jobs:
         run: npm test
 
   e2e:
+    name: E2E (${{ matrix.signing_mode }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -34,6 +35,9 @@ jobs:
         signing_mode: [worker, hardware-ed25519, hardware-p256]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Signing mode for this matrix job
+        run: echo "E2E_SIGNING_MODE=${{ matrix.signing_mode }}"
 
       - uses: actions/setup-node@v4
         with:
@@ -47,7 +51,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # Uses playwright.config.js reporters on GITHUB_ACTIONS: github + line (do not pass only --reporter=github — it hides per-test lines).
-      - name: Run Playwright E2E suite
+      - name: Run Playwright E2E suite (${{ matrix.signing_mode }})
         run: npm run test:e2e
         env:
           CI: true
