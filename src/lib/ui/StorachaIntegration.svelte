@@ -243,6 +243,9 @@
   let pairingE2eResultPromise = /** @type {Promise<unknown> | null} */ (null);
   let pairingE2eResultResolve = /** @type {((v: unknown) => void) | null} */ (null);
   let pairingE2eResultReject = /** @type {((e: unknown) => void) | null} */ (null);
+  /** After injected Approve completes; lets {@link waitForPendingPairingResultFromE2e} run in a later `page.evaluate`. */
+  let lastE2eInjectedPairingResult = /** @type {unknown} */ (undefined);
+  let hasLastE2eInjectedPairingResult = false;
 
   // Recovery state
   let isRecovering = $state(false);
@@ -948,6 +951,8 @@
   }
 
   function beginInjectedPairingRequest(/** @type {unknown} */ payload) {
+    hasLastE2eInjectedPairingResult = false;
+    lastE2eInjectedPairingResult = undefined;
     pairingInjectedFromE2e = true;
     showStoracha = true;
     activeTab = 'passkeys';
@@ -960,7 +965,11 @@
   }
 
   function waitForPendingPairingResultFromE2e() {
-    return pairingE2eResultPromise ?? Promise.reject(new Error('No pending injected pairing'));
+    if (pairingE2eResultPromise) return pairingE2eResultPromise;
+    if (hasLastE2eInjectedPairingResult) {
+      return Promise.resolve(lastE2eInjectedPairingResult);
+    }
+    return Promise.reject(new Error('No pending injected pairing'));
   }
 
   async function handlePairDecision(/** @type {string} */ decision) {
@@ -970,9 +979,6 @@
       pairingInjectedFromE2e = false;
       const resolve = pairingE2eResultResolve;
       const reject = pairingE2eResultReject;
-      pairingE2eResultResolve = null;
-      pairingE2eResultReject = null;
-      pairingE2eResultPromise = null;
       const forced = decision === 'granted' ? 'granted' : 'rejected';
       try {
         if (!deviceManager) {
@@ -984,9 +990,15 @@
         } catch {
           /* list refresh best-effort */
         }
+        lastE2eInjectedPairingResult = result;
+        hasLastE2eInjectedPairingResult = true;
         resolve?.(result);
       } catch (err) {
         reject?.(err);
+      } finally {
+        pairingE2eResultResolve = null;
+        pairingE2eResultReject = null;
+        pairingE2eResultPromise = null;
       }
       return;
     }

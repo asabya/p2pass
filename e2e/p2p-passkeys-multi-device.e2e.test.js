@@ -75,7 +75,7 @@ test.describe('P2Pass Multi-Device E2E', () => {
         })
         .toBe(2);
 
-      await expect(pageA.getByTestId('linked-devices-count').first()).toContainText('2');
+      await expect(pageA.getByTestId('storacha-linked-devices-count').first()).toContainText('2');
 
       const linkedDevices = await pageA.evaluate(() => window.__p2pPasskeysWidget.listDevices());
       expect(linkedDevices).toHaveLength(2);
