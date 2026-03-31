@@ -100,6 +100,7 @@
     "@sveltejs/vite-plugin-svelte": "^6.1.4",
     "@tailwindcss/vite": "^4.1.17",
     "@vitejs/plugin-react": "^4.3.0",
+    "@web3-storage/sigv4": "^1.0.2",
     "eslint": "^10.1.0",
     "eslint-plugin-svelte": "^3.16.0",
     "globals": "^17.4.0",

@@ -190,7 +190,8 @@ if (relayMultiaddrsPayload?.peerId) {
   );
 }
 
-const pkg = spawn('npx', ['svelte-package'], { cwd: root, stdio: 'inherit' });
+const sveltePackageCli = resolve(root, 'node_modules', '@sveltejs', 'package', 'svelte-package.js');
+const pkg = spawn(process.execPath, [sveltePackageCli], { cwd: root, stdio: 'inherit' });
 await new Promise((resolvePromise, reject) => {
   pkg.on('error', reject);
   pkg.on('exit', (code) => {
