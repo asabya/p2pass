@@ -16,6 +16,8 @@ const webServerStdio =
 
 export default defineConfig({
   forbidOnly: !!process.env.CI,
+  /** Without this, a test that fails then passes on retry exits 0 (“flaky”) and GitHub Actions stays green. */
+  failOnFlakyTests: !!process.env.CI,
   timeout: 180_000,
   expect: { timeout: 30_000 },
   reporter,
