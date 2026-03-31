@@ -4,7 +4,7 @@
  */
 
 /** @type {string} Published package version (kept in sync via `scripts/sync-version.mjs`). */
-export const VERSION = '0.3.1';
+export const VERSION = '0.3.2';
 
 import StorachaIntegration from './ui/StorachaIntegration.svelte';
 import StorachaFab from './ui/StorachaFab.svelte';
