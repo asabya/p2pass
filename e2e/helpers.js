@@ -261,7 +261,9 @@ export async function importStorachaDelegationForE2e(page, delegationRaw) {
   await page.getByTestId('storacha-tab-storacha').first().click();
   await page.getByTestId('storacha-delegation-textarea').fill(delegationRaw.trim());
   await page.getByTestId('storacha-delegation-import').click();
-  await expect(page.getByText(/Connected to Storacha/i)).toBeVisible({ timeout: 120_000 });
+  await expect(
+    page.getByText(/Connected to Storacha via UCAN delegation/i),
+  ).toBeVisible({ timeout: 120_000 });
   // publishManifest is async; w3name/IPFS need time before a subsequent IPNS-only recovery.
   await page.waitForTimeout(8000);
 }

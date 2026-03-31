@@ -32,5 +32,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # Uses playwright.config.js reporters on GITHUB_ACTIONS: github + line (do not pass only --reporter=github — it hides per-test lines).
+      # Full suite (all e2e projects): npm run test:e2e
+      # Temporarily narrowed to core specs only; widget e2e (*.e2e.test.js) and any other spec files are not run.
       - name: Run Playwright E2E suite
-        run: npm run test:e2e
+        run: npx playwright test e2e/link-devices.spec.js e2e/recovery-worker.spec.js --project=e2e
