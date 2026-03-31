@@ -5,7 +5,7 @@ import { SIGNING_PREFERENCE_STORAGE_KEY } from '../src/lib/identity/signing-pref
  * @param {{ signingPreference?: string }} [options]
  * @returns {'hardware-ed25519' | 'hardware-p256' | 'worker'}
  */
-function resolveE2eSigningPreference(options = {}) {
+export function resolveE2eSigningPreference(options = {}) {
   const raw =
     options.signingPreference ||
     (typeof process !== 'undefined' && process.env.E2E_SIGNING_MODE) ||
@@ -155,20 +155,25 @@ const LINKED_ROWS_TIMEOUT_MS = 120_000;
  *
  * @param {import('@playwright/test').Page} page
  * @param {number} count
+ * @param {{ timeoutMs?: number, stableTicks?: number, finalTimeoutMs?: number }} [options]
  */
-export async function expectLinkedDeviceRowCount(page, count) {
+export async function expectLinkedDeviceRowCount(page, count, options = {}) {
+  const timeoutMs = options.timeoutMs ?? LINKED_ROWS_TIMEOUT_MS;
+  const stableTicks = options.stableTicks ?? LINKED_ROWS_STABLE_TICKS;
+  const finalTimeoutMs = options.finalTimeoutMs ?? 30_000;
+
   await ensureStorachaPanelOpen(page);
   await page.getByTestId('storacha-tab-passkeys').first().click();
 
   const rows = page.getByTestId('storacha-panel').getByTestId('storacha-linked-device-row');
-  const deadline = Date.now() + LINKED_ROWS_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
   let stable = 0;
 
   while (Date.now() < deadline) {
     const n = await rows.count();
     if (n === count) {
       stable += 1;
-      if (stable >= LINKED_ROWS_STABLE_TICKS) {
+      if (stable >= stableTicks) {
         await expect(rows).toHaveCount(count);
         return;
       }
@@ -178,7 +183,7 @@ export async function expectLinkedDeviceRowCount(page, count) {
     await new Promise((r) => setTimeout(r, LINKED_ROWS_POLL_MS));
   }
 
-  await expect(rows).toHaveCount(count, { timeout: 5_000 });
+  await expect(rows).toHaveCount(count, { timeout: finalTimeoutMs });
 }
 
 /**

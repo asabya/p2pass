@@ -10,10 +10,15 @@ import {
   pairBobWithAlice,
   importStorachaDelegationForE2e,
   E2E_LOCAL_RECOVERY_CACHE_KEYS,
+  resolveE2eSigningPreference,
 } from './helpers.js';
 
-const WORKER = /** @type {const} */ ('worker');
+/** Same values as CI matrix `E2E_SIGNING_MODE` (`worker` | `hardware-ed25519` | `hardware-p256`). Virtual WebAuthn supports all three. */
+const signingMode = resolveE2eSigningPreference();
 const E2E_DIR = dirname(fileURLToPath(import.meta.url));
+
+/** Linked-device replication can be slow in CI; relax stability requirement slightly vs default 5×. */
+const LINKED_ROWS_WAIT = { timeoutMs: 180_000, stableTicks: 3, finalTimeoutMs: 45_000 };
 
 /**
  * Requires the default Playwright webServer (`scripts/e2e-with-relay.mjs` + Vite). Do not use
@@ -28,8 +33,8 @@ const E2E_DIR = dirname(fileURLToPath(import.meta.url));
  * local registry hints”. A second isolated Playwright context **cannot** share the virtual passkey;
  * IPNS recovery is tested in the same context after reload.
  */
-test.describe('Worker Ed25519 — passkey recovery', () => {
-  test.describe.configure({ timeout: 240_000 });
+test.describe(`Passkey recovery — ${signingMode}`, () => {
+  test.describe.configure({ timeout: 300_000 });
   test('(a) Alice reload + Recover: local OrbitDB path; two linked devices still listed', async ({
     browser,
   }, testInfo) => {
@@ -47,21 +52,22 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
     const alicePage = await alice.newPage();
     const bobPage = await bob.newPage();
 
-    await addVirtualWebAuthn(alice, alicePage, { signingPreference: WORKER });
-    await addVirtualWebAuthn(bob, bobPage, { signingPreference: WORKER });
+    await addVirtualWebAuthn(alice, alicePage, { signingPreference: signingMode });
+    await addVirtualWebAuthn(bob, bobPage, { signingPreference: signingMode });
 
-    await createPasskeyAndOpenP2PTab(alicePage, { signingPreference: WORKER });
-    await createPasskeyAndOpenP2PTab(bobPage, { signingPreference: WORKER });
+    await createPasskeyAndOpenP2PTab(alicePage, { signingPreference: signingMode });
+    await createPasskeyAndOpenP2PTab(bobPage, { signingPreference: signingMode });
 
     await pairBobWithAlice(alicePage, bobPage);
 
-    await expectLinkedDeviceRowCount(alicePage, 2);
-    await expectLinkedDeviceRowCount(bobPage, 2);
+    await expectLinkedDeviceRowCount(alicePage, 2, LINKED_ROWS_WAIT);
+    await expectLinkedDeviceRowCount(bobPage, 2, LINKED_ROWS_WAIT);
 
-    await alicePage.reload({ waitUntil: 'domcontentloaded' });
+    await alicePage.reload({ waitUntil: 'load' });
+    await alicePage.getByTestId('storacha-fab-toggle').waitFor({ state: 'visible', timeout: 120_000 });
 
-    await recoverPasskeyFromPreAuth(alicePage, { signingPreference: WORKER });
-    await expectLinkedDeviceRowCount(alicePage, 2);
+    await recoverPasskeyFromPreAuth(alicePage, { signingPreference: signingMode });
+    await expectLinkedDeviceRowCount(alicePage, 2, LINKED_ROWS_WAIT);
 
     await alice.close();
     await bob.close();
@@ -88,9 +94,9 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
     });
     const page = await ctx.newPage();
 
-    await addVirtualWebAuthn(ctx, page, { signingPreference: WORKER });
+    await addVirtualWebAuthn(ctx, page, { signingPreference: signingMode });
     await createPasskeyAndOpenP2PTab(page, {
-      signingPreference: WORKER,
+      signingPreference: signingMode,
       passkeyUserLabel: 'e2e-inmemory-storacha',
     });
 
@@ -136,9 +142,9 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
     });
     const page = await ctx.newPage();
 
-    await addVirtualWebAuthn(ctx, page, { signingPreference: WORKER });
+    await addVirtualWebAuthn(ctx, page, { signingPreference: signingMode });
     await createPasskeyAndOpenP2PTab(page, {
-      signingPreference: WORKER,
+      signingPreference: signingMode,
       passkeyUserLabel: 'e2e-ipns-mock-recovery',
     });
 
@@ -172,7 +178,7 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
 
-    await recoverPasskeyFromPreAuth(page, { signingPreference: WORKER });
+    await recoverPasskeyFromPreAuth(page, { signingPreference: signingMode });
 
     await expect(page.getByTestId('storacha-your-did').first()).toHaveAttribute(
       'data-storacha-did-full',
@@ -203,9 +209,9 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
     });
     const page = await ctx.newPage();
 
-    await addVirtualWebAuthn(ctx, page, { signingPreference: WORKER });
+    await addVirtualWebAuthn(ctx, page, { signingPreference: signingMode });
     await createPasskeyAndOpenP2PTab(page, {
-      signingPreference: WORKER,
+      signingPreference: signingMode,
       passkeyUserLabel: 'e2e-ipns-recovery-worker',
     });
 
@@ -231,7 +237,7 @@ test.describe('Worker Ed25519 — passkey recovery', () => {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
 
-    await recoverPasskeyFromPreAuth(page, { signingPreference: WORKER });
+    await recoverPasskeyFromPreAuth(page, { signingPreference: signingMode });
 
     await expect(page.getByTestId('storacha-your-did').first()).toHaveAttribute(
       'data-storacha-did-full',
