@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@le-space/p2pass': path.resolve(__dirname, '../../src/lib'),
+      p2pass: path.resolve(__dirname, '../../src/lib'),
     },
   },
   optimizeDeps: {

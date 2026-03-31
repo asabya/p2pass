@@ -6,7 +6,7 @@
     createLibp2pInstance,
     cleanupP2PStack,
     sortPairingMultiaddrs,
-  } from '@le-space/p2pass';
+  } from 'p2pass';
 
   let orbitdb = $state(null);
   let libp2p = $state(null);

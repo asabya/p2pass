@@ -18,8 +18,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@le-space/p2pass': path.resolve(__dirname, '../../src/lib/index.js'),
-      '@le-space/p2pass/react': path.resolve(__dirname, '../../src/lib/react/index.js'),
+      p2pass: path.resolve(__dirname, '../../src/lib/index.js'),
+      'p2pass/react': path.resolve(__dirname, '../../src/lib/react/index.js'),
     },
   },
   optimizeDeps: {
