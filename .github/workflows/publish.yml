@@ -25,7 +25,6 @@ jobs:
           node-version: '22'
           cache: npm
           registry-url: 'https://registry.npmjs.org'
-          token: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies
         run: npm install
@@ -42,5 +41,10 @@ jobs:
       - name: Build package
         run: npm run package
 
+      - name: Bump version
+        run: npm version patch --no-git-tag-version
+
       - name: Publish to npm
         run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
