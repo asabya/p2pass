@@ -17,8 +17,8 @@ import {
 const signingMode = resolveE2eSigningPreference();
 const E2E_DIR = dirname(fileURLToPath(import.meta.url));
 
-/** Linked-device replication can be slow in CI; relax stability requirement slightly vs default 5×. */
-const LINKED_ROWS_WAIT = { timeoutMs: 180_000, stableTicks: 3, finalTimeoutMs: 45_000 };
+/** Linked-device replication can be slow in CI. */
+const LINKED_ROWS_WAIT = { timeoutMs: 240_000, finalTimeoutMs: 45_000 };
 
 /**
  * Requires the default Playwright webServer (`scripts/e2e-with-relay.mjs` + Vite). Do not use

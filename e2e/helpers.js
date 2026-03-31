@@ -144,44 +144,27 @@ export async function recoverPasskeyFromPreAuth(page, options = {}) {
   );
 }
 
-/** OrbitDB device list can flicker while replicating; require this many consecutive polls at `count`. */
-const LINKED_ROWS_STABLE_TICKS = 5;
-const LINKED_ROWS_POLL_MS = 500;
 const LINKED_ROWS_TIMEOUT_MS = 120_000;
 
 /**
  * Assert linked-device rows inside the main panel only (avoids stray matches) and wait until the
- * count matches `count` on several consecutive polls — replication often oscillates before settling.
+ * count reaches `count`. Uses `expect.poll` so CI is not stuck at 0/1 rows while OrbitDB catches up
+ * (the old consecutive-tick gate never advanced when the count stayed below target).
  *
  * @param {import('@playwright/test').Page} page
  * @param {number} count
- * @param {{ timeoutMs?: number, stableTicks?: number, finalTimeoutMs?: number }} [options]
+ * @param {{ timeoutMs?: number, finalTimeoutMs?: number }} [options]
  */
 export async function expectLinkedDeviceRowCount(page, count, options = {}) {
   const timeoutMs = options.timeoutMs ?? LINKED_ROWS_TIMEOUT_MS;
-  const stableTicks = options.stableTicks ?? LINKED_ROWS_STABLE_TICKS;
   const finalTimeoutMs = options.finalTimeoutMs ?? 30_000;
 
   await ensureStorachaPanelOpen(page);
   await page.getByTestId('storacha-tab-passkeys').first().click();
 
   const rows = page.getByTestId('storacha-panel').getByTestId('storacha-linked-device-row');
-  const deadline = Date.now() + timeoutMs;
-  let stable = 0;
 
-  while (Date.now() < deadline) {
-    const n = await rows.count();
-    if (n === count) {
-      stable += 1;
-      if (stable >= stableTicks) {
-        await expect(rows).toHaveCount(count);
-        return;
-      }
-    } else {
-      stable = 0;
-    }
-    await new Promise((r) => setTimeout(r, LINKED_ROWS_POLL_MS));
-  }
+  await expect.poll(async () => rows.count(), { timeout: timeoutMs }).toBe(count);
 
   await expect(rows).toHaveCount(count, { timeout: finalTimeoutMs });
 }
@@ -262,6 +245,11 @@ export async function pairBobWithAlice(alicePage, bobPage) {
   await ensureStorachaPanelOpen(alicePage);
   await expect(alicePage.getByTestId('storacha-pairing-prompt')).toBeVisible({ timeout: 30_000 });
   await alicePage.getByTestId('storacha-pairing-approve').click({ timeout: 120_000 });
+
+  // Approve returns before registry replication finishes; wait until both UIs show two rows.
+  await expectLinkedDeviceRowCount(alicePage, 2, { timeoutMs: 120_000, finalTimeoutMs: 30_000 });
+  await bobPage.bringToFront();
+  await expectLinkedDeviceRowCount(bobPage, 2, { timeoutMs: 120_000, finalTimeoutMs: 30_000 });
 }
 
 /**

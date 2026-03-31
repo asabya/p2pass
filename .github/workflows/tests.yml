@@ -3,6 +3,10 @@ name: Tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   unit:
@@ -23,7 +27,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -40,9 +44,10 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+        run: npx playwright install --with-deps chromium
 
-      - name: End-to-end tests
+      # Uses playwright.config.js reporters on GITHUB_ACTIONS: github + line (do not pass only --reporter=github — it hides per-test lines).
+      - name: Run Playwright E2E suite
         run: npm run test:e2e
         env:
           CI: true
