@@ -229,6 +229,10 @@
   let linkInput = $state('');
   let isLinking = $state(false);
   let linkError = $state('');
+  /** Bob-side link flow: progress bar + copy aligned with `[pairing-flow]` / `[linkToDevice]` logs */
+  let linkProgressPct = $state(0);
+  let linkProgressHeadline = $state('');
+  let linkProgressDetail = $state('');
   let deviceManager = $state(null);
   /** Prevents duplicate concurrent init from initRegistryDb + $effect. */
   let deviceManagerInitInProgress = false;
@@ -842,6 +846,105 @@
     return MultiDeviceManager._normalizeLinkPayload(t);
   }
 
+  function resetLinkProgress() {
+    linkProgressPct = 0;
+    linkProgressHeadline = '';
+    linkProgressDetail = '';
+  }
+
+  /**
+   * @param {string} phase
+   * @param {Record<string, unknown>} [detail]
+   */
+  function onLinkDeviceProgress(phase, detail) {
+    const d = detail && typeof detail === 'object' ? detail : {};
+    switch (phase) {
+      case 'bob_connecting': {
+        linkProgressPct = 12;
+        if (d.variant === 'reuse_connection') {
+          linkProgressHeadline = 'Reusing existing libp2p connection';
+          linkProgressDetail = d.addr
+            ? `Remote path: ${String(d.addr).slice(0, 80)}${String(d.addr).length > 80 ? '…' : ''} — [pairing-flow] peer-id mode: reusing existing connection.`
+            : '[pairing-flow] peer-id mode: reusing existing libp2p connection.';
+        } else if (d.variant === 'dial_peer_store') {
+          linkProgressHeadline = 'Dialing addresses from the peer store';
+          linkProgressDetail = `Trying ${d.count ?? '?'} address(es) — [pairing-flow] peer-id mode: dialing peer store address(es).`;
+        } else if (d.variant === 'dial_peer_id_fallback') {
+          linkProgressHeadline = 'Dialing the other device by peer id';
+          linkProgressDetail =
+            '[pairing-flow] no connection and no dialable addrs in peer store — trying dial(peerId).';
+        } else if (d.variant === 'dial_hints') {
+          linkProgressHeadline = 'Dialing using pasted multiaddrs';
+          linkProgressDetail = '[pairing] Attempting to dial with hint multiaddrs (best path first).';
+        } else {
+          linkProgressHeadline = 'Connecting to the other device';
+          linkProgressDetail = 'libp2p is establishing a route to the pasted peer id.';
+        }
+        break;
+      }
+      case 'bob_stream_ready':
+        linkProgressPct = 28;
+        linkProgressHeadline = 'Link-device stream ready';
+        linkProgressDetail = '[pairing] Secure /orbitdb/link-device/1.0.0 stream is open.';
+        break;
+      case 'bob_send_request':
+        linkProgressPct = 40;
+        linkProgressHeadline = 'Sending link-device request (length-prefixed JSON)';
+        linkProgressDetail = `To Alice (${String(d.alicePeerId || '').slice(0, 14)}…) — includes your DID and device label.`;
+        break;
+      case 'bob_wait_response':
+        linkProgressPct = 52;
+        linkProgressHeadline = 'Waiting for response on the same stream';
+        linkProgressDetail =
+          '[pairing-flow] BOB — waiting for RESPONSE from Alice — the other browser must approve the prompt.';
+        break;
+      case 'bob_response':
+        linkProgressPct = d.type === 'granted' ? 62 : 55;
+        if (d.type === 'granted') {
+          linkProgressHeadline = 'Received approval — shared registry address';
+          linkProgressDetail = d.orbitdbAddressPrefix
+            ? `${d.orbitdbAddressPrefix} [pairing-flow] received RESPONSE (granted).`
+            : '[pairing-flow] received RESPONSE from Alice (granted).';
+        } else {
+          linkProgressHeadline = 'Request was not approved';
+          linkProgressDetail = d.reason
+            ? String(d.reason)
+            : 'The other device rejected pairing or an error occurred.';
+        }
+        break;
+      case 'bob_open_registry':
+        linkProgressPct = 70;
+        linkProgressHeadline = 'Opening shared OrbitDB registry';
+        linkProgressDetail = '[linkToDevice] Got granted, opening database…';
+        break;
+      case 'bob_sync_registry':
+        linkProgressPct = 80;
+        linkProgressHeadline = 'Database opened — waiting for entries to sync';
+        linkProgressDetail =
+          '[linkToDevice] Waiting for Device A entries to sync… (sync listeners + replication).';
+        break;
+      case 'bob_registry_setup_done':
+        linkProgressPct = 90;
+        linkProgressHeadline = 'Registry ready — sync listeners and link handler registered';
+        linkProgressDetail = d.dbAddress
+          ? `${d.dbAddress} — [pairing-flow] linkToDevice complete.`
+          : 'linkToDevice complete: registry open + handler re-registered.';
+        break;
+      case 'bob_migrate':
+        linkProgressPct = 95;
+        linkProgressHeadline = 'Migrating local registry entries';
+        linkProgressDetail = '[ui] Migrating entries from old registry to shared registry…';
+        break;
+      case 'bob_done':
+        linkProgressPct = 100;
+        linkProgressHeadline = 'Finishing';
+        linkProgressDetail = 'Persisting shared address and refreshing the device list.';
+        break;
+      default:
+        break;
+    }
+  }
+
   async function migrateRegistryEntries(oldDb, newDb, did) {
     // Read all entries from old DB once (stable — not being written to during migration)
     const keypairs = await listKeypairs(oldDb);
@@ -899,11 +1002,18 @@
       );
       return;
     }
+    resetLinkProgress();
     isLinking = true;
     linkError = '';
+    linkProgressPct = 4;
+    linkProgressHeadline = 'Starting device link';
+    linkProgressDetail =
+      'Connecting over libp2p and opening the link-device flow — see [pairing-flow] BOB in the console.';
     try {
       const payload = parseLinkPeerInput(linkInput);
-      const result = await deviceManager.linkToDevice(payload);
+      const result = await deviceManager.linkToDevice(payload, {
+        onProgress: onLinkDeviceProgress,
+      });
       pairingFlow('BOB', '[UI] linkToDevice returned', {
         type: result?.type,
         reason: result?.reason,
@@ -922,6 +1032,7 @@
         let migrated = false;
         if (registryDb && deviceManager.getDevicesDb() && signingMode?.did) {
           const sharedDb = deviceManager.getDevicesDb();
+          onLinkDeviceProgress('bob_migrate');
           console.log('[ui] Migrating entries from old registry to shared registry...');
           migrated = await migrateRegistryEntries(registryDb, sharedDb, signingMode.did);
         }
@@ -933,6 +1044,7 @@
         } else if (!migrated) {
           console.warn('[ui] Keeping old registry address — migration did not complete');
         }
+        onLinkDeviceProgress('bob_done');
         showMessage('Device linked successfully!');
         pairingFlow('BOB', '[UI] device link success message shown; device list refreshed');
         linkInput = '';
@@ -944,6 +1056,8 @@
     } catch (err) {
       pairingFlow('BOB', '[UI] linkToDevice threw', { error: err?.message });
       linkError = `Failed to link: ${err.message}`;
+      linkProgressHeadline = 'Link failed';
+      linkProgressDetail = err?.message || String(err);
     } finally {
       isLinking = false;
     }
@@ -1286,6 +1400,47 @@
           />
         </svg>
       </button>
+    </div>
+  </div>
+{/snippet}
+
+{#snippet linkDevicePairingProgress()}
+  <div
+    data-testid="storacha-link-device-progress"
+    style="display: flex; flex-direction: column; gap: 0.65rem;"
+  >
+    <div
+      style="font-size: 0.65rem; font-weight: 700; color: #E91315; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'DM Sans', sans-serif;"
+    >
+      Pairing progress
+    </div>
+    <div
+      style="height: 0.5rem; width: 100%; border-radius: 9999px; background: rgba(233, 19, 21, 0.12); overflow: hidden;"
+    >
+      <div
+        style="height: 100%; width: {Math.min(100, linkProgressPct)}%; border-radius: 9999px; background: linear-gradient(90deg, #E91315, #FFC83F); transition: width 280ms ease-out;"
+      ></div>
+    </div>
+    <div
+      style="font-size: 0.8rem; font-weight: 700; color: #111827; font-family: 'Epilogue', sans-serif; line-height: 1.35;"
+    >
+      {linkProgressHeadline || '…'}
+    </div>
+    {#if linkProgressDetail}
+      <p
+        style="margin: 0; font-size: 0.7rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.45;"
+      >
+        {linkProgressDetail}
+      </p>
+    {/if}
+    <div
+      style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.65rem; color: #9ca3af; font-family: 'DM Sans', sans-serif;"
+    >
+      <Loader2 style="height: 0.85rem; width: 0.85rem; animation: spin 1s linear infinite; flex-shrink: 0;" />
+      <span>
+        Console: filter <code style="font-family: 'DM Mono', monospace;">[pairing-flow]</code> ·
+        <code style="font-family: 'DM Mono', monospace;">[linkToDevice]</code>
+      </span>
     </div>
   </div>
 {/snippet}
@@ -1955,61 +2110,58 @@
                 >
                   Link Another Device
                 </h4>
-                <p
-                  style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;"
-                >
-                  After both browsers are on the same app and P2P has discovered peers (pubsub),
-                  paste the other device’s <strong>peer id</strong> (copy from its Passkeys tab). Linking
-                  uses addresses libp2p already learned — no JSON.
-                </p>
-                {#if !linkDeviceReady}
-                  <div
-                    style="margin-bottom: 0.5rem; font-size: 0.7rem; color: #b45309; font-family: 'DM Sans', sans-serif; line-height: 1.35; border-radius: 0.375rem; background: rgba(254, 243, 199, 0.9); padding: 0.5rem 0.65rem; border: 1px solid #fbbf24;"
+                {#if isLinking}
+                  {@render linkDevicePairingProgress()}
+                {:else}
+                  <p
+                    style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #6b7280; font-family: 'DM Sans', sans-serif; line-height: 1.4;"
                   >
-                    Linking is unavailable until the device registry and P2P stack finish loading
-                    (MultiDeviceManager). If this stays stuck, check the browser console and confirm
-                    OrbitDB initialized after passkey auth.
-                  </div>
-                {/if}
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                  <input
-                    type="text"
-                    data-testid="storacha-link-peer-input"
-                    bind:value={linkInput}
-                    placeholder="Other device’s libp2p peer id (12D3KooW…)"
-                    autocomplete="off"
-                    spellcheck="false"
-                    style="width: 100%; border-radius: 0.375rem; border: 1px solid #E91315; background-color: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
-                  />
-                  {#if linkError}
+                    After both browsers are on the same app and P2P has discovered peers (pubsub),
+                    paste the other device’s <strong>peer id</strong> (copy from its Passkeys tab).
+                    Linking uses addresses libp2p already learned — no JSON.
+                  </p>
+                  {#if !linkDeviceReady}
                     <div
-                      data-testid="storacha-link-error"
-                      style="font-size: 0.7rem; color: #dc2626; font-family: 'DM Sans', sans-serif;"
+                      style="margin-bottom: 0.5rem; font-size: 0.7rem; color: #b45309; font-family: 'DM Sans', sans-serif; line-height: 1.35; border-radius: 0.375rem; background: rgba(254, 243, 199, 0.9); padding: 0.5rem 0.65rem; border: 1px solid #fbbf24;"
                     >
-                      {linkError}
+                      Linking is unavailable until the device registry and P2P stack finish loading
+                      (MultiDeviceManager). If this stays stuck, check the browser console and confirm
+                      OrbitDB initialized after passkey auth.
                     </div>
                   {/if}
-                  <button
-                    data-testid="storacha-link-device-submit"
-                    data-mdm-ready={linkDeviceReady ? 'true' : 'false'}
-                    type="button"
-                    onclick={handleLinkDevice}
-                    disabled={linkDeviceDisabled}
-                    title={!linkDeviceReady
-                      ? 'Waiting for device registry / MultiDeviceManager to initialize'
-                      : 'Link using the other device’s peer id'}
-                    style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: {linkDeviceDisabled
-                      ? 'not-allowed'
-                      : 'pointer'}; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {linkDeviceDisabled
-                      ? '0.5'
-                      : '1'}; box-sizing: border-box;"
-                  >
-                    {#if isLinking}
-                      <Loader2
-                        style="height: 1rem; width: 1rem; animation: spin 1s linear infinite;"
-                      />
-                      <span>Linking...</span>
-                    {:else}
+                  <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <input
+                      type="text"
+                      data-testid="storacha-link-peer-input"
+                      bind:value={linkInput}
+                      placeholder="Other device’s libp2p peer id (12D3KooW…)"
+                      autocomplete="off"
+                      spellcheck="false"
+                      style="width: 100%; border-radius: 0.375rem; border: 1px solid #E91315; background-color: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
+                    />
+                    {#if linkError}
+                      <div
+                        data-testid="storacha-link-error"
+                        style="font-size: 0.7rem; color: #dc2626; font-family: 'DM Sans', sans-serif;"
+                      >
+                        {linkError}
+                      </div>
+                    {/if}
+                    <button
+                      data-testid="storacha-link-device-submit"
+                      data-mdm-ready={linkDeviceReady ? 'true' : 'false'}
+                      type="button"
+                      onclick={handleLinkDevice}
+                      disabled={linkDeviceDisabled}
+                      title={!linkDeviceReady
+                        ? 'Waiting for device registry / MultiDeviceManager to initialize'
+                        : 'Link using the other device’s peer id'}
+                      style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: color 150ms, background-color 150ms; border: none; cursor: {linkDeviceDisabled
+                        ? 'not-allowed'
+                        : 'pointer'}; font-family: 'Epilogue', sans-serif; font-weight: 600; opacity: {linkDeviceDisabled
+                        ? '0.5'
+                        : '1'}; box-sizing: border-box;"
+                    >
                       <svg
                         style="height: 1rem; width: 1rem;"
                         fill="none"
@@ -2024,9 +2176,9 @@
                         />
                       </svg>
                       <span>Link Device</span>
-                    {/if}
-                  </button>
-                </div>
+                    </button>
+                  </div>
+                {/if}
               </div>
               <!-- Connection Status + Copy -->
               <div
@@ -2521,46 +2673,43 @@
                 >
                   Link Another Device
                 </div>
-                {#if !linkDeviceReady}
-                  <div
-                    style="margin-bottom: 0.5rem; font-size: 0.65rem; color: #b45309; font-family: 'DM Sans', sans-serif; line-height: 1.35; border-radius: 0.375rem; background: rgba(254, 243, 199, 0.9); padding: 0.45rem 0.55rem; border: 1px solid #fbbf24;"
-                  >
-                    Registry / MultiDeviceManager not ready — button stays disabled until linking
-                    can run.
-                  </div>
-                {/if}
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  <input
-                    type="text"
-                    data-testid="storacha-link-peer-input"
-                    class="storacha-link-peer-id-input"
-                    bind:value={linkInput}
-                    placeholder="Other device’s peer id (12D3KooW…)"
-                    autocomplete="off"
-                    spellcheck="false"
-                    style="width: 100%; border-radius: 0.375rem; border: 1px solid #E91315; background: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
-                  />
-                  <button
-                    data-testid="storacha-link-device-submit"
-                    data-mdm-ready={linkDeviceReady ? 'true' : 'false'}
-                    type="button"
-                    onclick={handleLinkDevice}
-                    disabled={linkDeviceDisabled}
-                    title={!linkDeviceReady
-                      ? 'Waiting for device registry / MultiDeviceManager'
-                      : 'Link using the other device’s peer id'}
-                    style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; border: none; cursor: {linkDeviceDisabled
-                      ? 'not-allowed'
-                      : 'pointer'}; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); opacity: {linkDeviceDisabled
-                      ? '0.5'
-                      : '1'}; box-sizing: border-box;"
-                  >
-                    {#if isLinking}
-                      <Loader2
-                        style="height: 0.875rem; width: 0.875rem; animation: spin 1s linear infinite;"
-                      />
-                      Linking...
-                    {:else}
+                {#if isLinking}
+                  {@render linkDevicePairingProgress()}
+                {:else}
+                  {#if !linkDeviceReady}
+                    <div
+                      style="margin-bottom: 0.5rem; font-size: 0.65rem; color: #b45309; font-family: 'DM Sans', sans-serif; line-height: 1.35; border-radius: 0.375rem; background: rgba(254, 243, 199, 0.9); padding: 0.45rem 0.55rem; border: 1px solid #fbbf24;"
+                    >
+                      Registry / MultiDeviceManager not ready — button stays disabled until linking
+                      can run.
+                    </div>
+                  {/if}
+                  <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <input
+                      type="text"
+                      data-testid="storacha-link-peer-input"
+                      class="storacha-link-peer-id-input"
+                      bind:value={linkInput}
+                      placeholder="Other device’s peer id (12D3KooW…)"
+                      autocomplete="off"
+                      spellcheck="false"
+                      style="width: 100%; border-radius: 0.375rem; border: 1px solid #E91315; background: #ffffff; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #111827; font-family: 'DM Mono', monospace; outline: none; box-sizing: border-box;"
+                    />
+                    <button
+                      data-testid="storacha-link-device-submit"
+                      data-mdm-ready={linkDeviceReady ? 'true' : 'false'}
+                      type="button"
+                      onclick={handleLinkDevice}
+                      disabled={linkDeviceDisabled}
+                      title={!linkDeviceReady
+                        ? 'Waiting for device registry / MultiDeviceManager'
+                        : 'Link using the other device’s peer id'}
+                      style="display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.375rem; background-color: #E91315; padding: 0.5rem 1rem; color: #ffffff; border: none; cursor: {linkDeviceDisabled
+                        ? 'not-allowed'
+                        : 'pointer'}; font-family: 'Epilogue', sans-serif; font-weight: 700; font-size: 0.8rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); opacity: {linkDeviceDisabled
+                        ? '0.5'
+                        : '1'}; box-sizing: border-box;"
+                    >
                       <svg
                         style="height: 0.875rem; width: 0.875rem;"
                         fill="none"
@@ -2575,16 +2724,16 @@
                         />
                       </svg>
                       Link Device
-                    {/if}
-                  </button>
-                </div>
-                {#if linkError}
-                  <div
-                    data-testid="storacha-link-error"
-                    style="margin-top: 0.5rem; font-size: 0.75rem; color: #b91c1c; font-family: 'DM Sans', sans-serif;"
-                  >
-                    {linkError}
+                    </button>
                   </div>
+                  {#if linkError}
+                    <div
+                      data-testid="storacha-link-error"
+                      style="margin-top: 0.5rem; font-size: 0.75rem; color: #b91c1c; font-family: 'DM Sans', sans-serif;"
+                    >
+                      {linkError}
+                    </div>
+                  {/if}
                 {/if}
               </div>
             {/if}

@@ -209,11 +209,18 @@ function pickExistingConnection(libp2p, peerId) {
  * @param {import('@libp2p/interface').Libp2p} libp2p
  * @param {import('@libp2p/interface').PeerId} peerId
  */
-async function openLinkDeviceStreamPeerIdOnly(libp2p, peerId) {
+/**
+ * @param {(phase: string, detail?: Record<string, unknown>) => void} [onProgress] — Bob link UI (mirrors `[pairing-flow]` steps)
+ */
+async function openLinkDeviceStreamPeerIdOnly(libp2p, peerId, onProgress) {
   const existing = pickExistingConnection(libp2p, peerId);
   if (existing) {
     pairingFlow('BOB', 'peer-id mode: reusing existing libp2p connection', {
       remoteAddr: existing.remoteAddr?.toString?.(),
+    });
+    onProgress?.('bob_connecting', {
+      variant: 'reuse_connection',
+      addr: existing.remoteAddr?.toString?.(),
     });
     console.log('[pairing] peer-id mode: reusing existing connection to', peerId.toString());
     return await newLinkDeviceStreamWithRetry(libp2p, peerId, existing);
@@ -232,6 +239,7 @@ async function openLinkDeviceStreamPeerIdOnly(libp2p, peerId) {
   const forDial = takeTopPairingMultiaddrs(storeMultiaddrs);
   if (forDial.length > 0) {
     pairingFlow('BOB', 'peer-id mode: dialing peer store address(es)', { count: forDial.length });
+    onProgress?.('bob_connecting', { variant: 'dial_peer_store', count: forDial.length });
     console.log('[pairing] peer-id mode: dialing', forDial.length, 'address(es) from peer store');
     let connection;
     try {
@@ -249,6 +257,7 @@ async function openLinkDeviceStreamPeerIdOnly(libp2p, peerId) {
     'BOB',
     'peer-id mode: no connection and no dialable addrs in peer store — trying dial(peerId)'
   );
+  onProgress?.('bob_connecting', { variant: 'dial_peer_id_fallback' });
   console.warn(
     '[pairing] peer-id mode: no existing connection and no dialable addresses in peer store'
   );
@@ -533,9 +542,17 @@ export function detectDeviceLabel() {
  * @param {string|Object} deviceAPeerId - peerId string or PeerId object of Device A
  * @param {Object} identity - { id, credentialId, publicKey?, deviceLabel?, passkeyKind? }
  * @param {string[]} [hintMultiaddrs] - Known multiaddrs for Device A (from QR payload)
+ * @param {{ onProgress?: (phase: string, detail?: Record<string, unknown>) => void }} [options] — Bob-side UI progress (same phases as `[pairing-flow]` logs)
  * @returns {Promise<{type: 'granted', orbitdbAddress: string}|{type: 'rejected', reason: string}>}
  */
-export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMultiaddrs = []) {
+export async function sendPairingRequest(
+  libp2p,
+  deviceAPeerId,
+  identity,
+  hintMultiaddrs = [],
+  options = {}
+) {
+  const { onProgress } = options;
   let stream;
 
   let peerId;
@@ -551,6 +568,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
 
   if (hintMultiaddrs.length > 0) {
     try {
+      onProgress?.('bob_connecting', { variant: 'dial_hints' });
       console.log('[pairing] Attempting to dial with hint multiaddrs:', hintMultiaddrs);
       const { multiaddr } = await import('@multiformats/multiaddr');
       const parsedMultiaddrs = hintMultiaddrs
@@ -610,7 +628,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
     }
   } else {
     try {
-      stream = await openLinkDeviceStreamPeerIdOnly(libp2p, peerId);
+      stream = await openLinkDeviceStreamPeerIdOnly(libp2p, peerId, onProgress);
       console.log('[pairing] Link-device stream ready (peer-id mode)');
     } catch (e) {
       console.error('[pairing] peer-id mode failed:', e?.name, e?.message);
@@ -622,6 +640,7 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
     }
   }
 
+  onProgress?.('bob_stream_ready');
   const lp = lpStream(stream);
   const outbound = {
     type: 'request',
@@ -639,9 +658,14 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
     myDid: identity.id,
     deviceLabel: outbound.identity.deviceLabel,
   });
+  onProgress?.('bob_send_request', {
+    alicePeerId: peerId.toString(),
+    deviceLabel: outbound.identity.deviceLabel,
+  });
   await lp.write(encodeMessage(outbound));
 
   pairingFlow('BOB', 'waiting for RESPONSE from Alice on same stream…');
+  onProgress?.('bob_wait_response');
   const result = decodeMessage(await lp.read());
   pairingFlow('BOB', 'received RESPONSE from Alice', {
     type: result?.type,
@@ -650,6 +674,14 @@ export async function sendPairingRequest(libp2p, deviceAPeerId, identity, hintMu
         ? String(result.orbitdbAddress || '').slice(0, 48) + '…'
         : undefined,
     reason: result?.reason,
+  });
+  onProgress?.('bob_response', {
+    type: result?.type,
+    reason: result?.reason,
+    orbitdbAddressPrefix:
+      result?.type === 'granted'
+        ? String(result.orbitdbAddress || '').slice(0, 48) + '…'
+        : undefined,
   });
   await stream.close();
   pairingFlow('BOB', 'stream closed after pairing RPC complete');

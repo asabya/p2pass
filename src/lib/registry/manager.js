@@ -229,8 +229,10 @@ export class MultiDeviceManager {
    * Link to Device A by peer id. Uses addresses already in libp2p’s peer store (e.g. from pubsub
    * discovery + autodial). Optional legacy shape: `{ peerId, multiaddrs }` for explicit dials.
    * @param {string|{ peerId: string, multiaddrs?: string[] }} qrPayload
+   * @param {{ onProgress?: (phase: string, detail?: Record<string, unknown>) => void }} [options] — Bob UI: mirrors `[pairing-flow]` / `[linkToDevice]` log phases
    */
-  async linkToDevice(qrPayload) {
+  async linkToDevice(qrPayload, options = {}) {
+    const { onProgress } = options;
     if (!this._orbitdb) {
       throw new Error('orbitdb not provided. Pass orbitdb, ipfs, libp2p, identity in config.');
     }
@@ -251,7 +253,8 @@ export class MultiDeviceManager {
         deviceLabel: detectDeviceLabel(),
         passkeyKind: this._identity.passkeyKind || null,
       },
-      multiaddrs
+      multiaddrs,
+      { onProgress }
     );
 
     pairingFlow('BOB', 'linkToDevice: sendPairingRequest finished', {
@@ -263,6 +266,7 @@ export class MultiDeviceManager {
     if (result.type === 'rejected') return result;
 
     console.log('[linkToDevice] Got granted, opening database...');
+    onProgress?.('bob_open_registry');
     pairingFlow('BOB', 'opening shared OrbitDB registry at address from Alice…');
     this._devicesDb = await openDeviceRegistry(
       this._orbitdb,
@@ -270,6 +274,7 @@ export class MultiDeviceManager {
       result.orbitdbAddress
     );
     this._dbAddress = this._devicesDb.address;
+    onProgress?.('bob_sync_registry');
     console.log('[linkToDevice] Database opened, waiting for Device A entries to sync...');
 
     this._listenersSetup = false;
@@ -277,6 +282,9 @@ export class MultiDeviceManager {
     await this._waitForEntries(15000);
     await this._finalizeDb();
 
+    onProgress?.('bob_registry_setup_done', {
+      dbAddress: String(this._dbAddress || '').slice(0, 56) + '…',
+    });
     pairingFlow(
       'BOB',
       'linkToDevice complete: registry open + sync listeners + handler re-registered',
