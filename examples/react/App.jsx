@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { P2Pass } from '@le-space/p2pass/react';
-import { setupP2PStack, createLibp2pInstance, cleanupP2PStack } from '@le-space/p2pass';
+import { P2Pass } from 'p2pass/react';
+import { setupP2PStack, createLibp2pInstance, cleanupP2PStack } from 'p2pass';
 
 export default function App() {
   const fabRef = useRef(null);

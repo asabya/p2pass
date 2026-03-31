@@ -1,8 +1,8 @@
-# P2Pass (`@le-space/p2pass`)
+# P2Pass
 
 [![Tests](https://github.com/asabya/p2pass/actions/workflows/tests.yml/badge.svg)](https://github.com/asabya/p2pass/actions/workflows/tests.yml)
 
-Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
+Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`p2pass`**.
 
 Drop in `<P2Pass />` and get:
 
@@ -16,14 +16,14 @@ Drop in `<P2Pass />` and get:
 ## Install
 
 ```bash
-npm install @le-space/p2pass
+npm install p2pass
 ```
 
 ## Usage
 
 ```svelte
 <script>
-  import { P2Pass } from '@le-space/p2pass';
+  import { P2Pass } from 'p2pass';
 </script>
 
 <P2Pass {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
@@ -41,7 +41,7 @@ The component handles everything internally:
 
 ```jsx
 import { useRef } from 'react';
-import { P2Pass } from '@le-space/p2pass/react';
+import { P2Pass } from 'p2pass/react';
 
 function App() {
   const fabRef = useRef(null);
@@ -208,7 +208,7 @@ import {
   setupP2PStack,
   createLibp2pInstance,
   cleanupP2PStack,
-} from '@le-space/p2pass';
+} from 'p2pass';
 
 // Create identity (worker mode for P2P)
 const identity = new IdentityService();
