@@ -1,9 +1,9 @@
 <script>
   /**
-   * Floating Storacha-branded button that toggles the passkey / P2P / Storacha panel (`StorachaIntegration`).
+   * Floating button that toggles the passkey / P2P / Storacha panel (`P2PassPanel`).
    * @component
    */
-  import StorachaIntegration from './StorachaIntegration.svelte';
+  import P2PassPanel from './P2PassPanel.svelte';
 
   let {
     orbitdb = null,
@@ -144,7 +144,7 @@
 		display: {showPanel ? 'block' : 'none'};
 	"
 >
-  <StorachaIntegration
+  <P2PassPanel
     {orbitdb}
     {database}
     {isInitialized}

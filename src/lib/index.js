@@ -6,11 +6,10 @@
 /** @type {string} Published package version (kept in sync via `scripts/sync-version.mjs`). */
 export const VERSION = '0.3.2';
 
-import StorachaIntegration from './ui/StorachaIntegration.svelte';
-import StorachaFab from './ui/StorachaFab.svelte';
+import P2PassPanel from './ui/P2PassPanel.svelte';
+import P2Pass from './ui/P2Pass.svelte';
 
-export { StorachaIntegration, StorachaFab };
-export { StorachaFab as P2Pass, StorachaIntegration as P2PassPanel };
+export { P2Pass, P2PassPanel };
 
 export { P2Pass as P2PassReact, P2PassPanel as P2PassPanelReact } from './react/index.js';
 

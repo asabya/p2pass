@@ -4,7 +4,7 @@
 
 Standalone Svelte component for passkey-based DID identities replicating p2p between devices and [Storacha](https://storacha.network) decentralized backup. Published on npm as **`@le-space/p2pass`** (Le Space).
 
-Drop in `<StorachaFab />` (or the **`P2Pass`** named export — same component) and get:
+Drop in `<P2Pass />` and get:
 
 - WebAuthn passkey authentication (hardware Ed25519, P-256, or worker Ed25519 fallback)
 - UCAN delegation-based Storacha access
@@ -23,15 +23,15 @@ npm install @le-space/p2pass
 
 ```svelte
 <script>
-  import { StorachaFab } from '@le-space/p2pass';
+  import { P2Pass } from '@le-space/p2pass';
 </script>
 
-<StorachaFab {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
+<P2Pass {orbitdb} {libp2p} onAuthenticate={handleAuthenticate} preferWorkerMode={true} />
 ```
 
 The component handles everything internally:
 
-1. Click the floating Storacha button (bottom-right)
+1. Click the floating P2Pass button (bottom-right)
 2. Choose a **signing mode** (hardware Ed25519 with P-256 fallback, hardware P-256 only, or worker Ed25519), then **Authenticate with Passkey** → biometric prompt → DID created
 3. Two tabs appear: **P2P Passkeys** (device linking) and **Storacha** (backup/restore); P2P Passkeys is the default
 4. Paste a UCAN delegation → connected to Storacha → backup/restore enabled
@@ -190,13 +190,13 @@ For React wrappers, `orbitdb`, `database`, and `libp2p` should be updated throug
 
 ## Components
 
-### `StorachaFab` (`P2Pass`)
+### `P2Pass`
 
-Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required. The **`P2Pass`** export is an alias for the same Svelte component.
+Floating action button (bottom-right) with the Storacha rooster logo. Opens the integration panel as an overlay. Self-contained — no Tailwind or external CSS required.
 
-### `StorachaIntegration` (`P2PassPanel`)
+### `P2PassPanel`
 
-The panel component itself. Can be embedded inline instead of as a floating panel. **`P2PassPanel`** is a named alias.
+The panel component itself. Can be embedded inline instead of as a floating panel.
 
 ## Programmatic API
 

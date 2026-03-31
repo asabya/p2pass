@@ -58,17 +58,17 @@
       "import": "./dist/identity/signing-preference.js",
       "default": "./dist/identity/signing-preference.js"
     },
-    "./ui/StorachaFab": {
-      "types": "./dist/ui/StorachaFab.svelte.d.ts",
-      "svelte": "./dist/ui/StorachaFab.svelte",
-      "import": "./dist/ui/StorachaFab.svelte",
-      "default": "./dist/ui/StorachaFab.svelte"
+    "./ui/P2Pass": {
+      "types": "./dist/ui/P2Pass.svelte.d.ts",
+      "svelte": "./dist/ui/P2Pass.svelte",
+      "import": "./dist/ui/P2Pass.svelte",
+      "default": "./dist/ui/P2Pass.svelte"
     },
-    "./ui/StorachaFab.svelte": {
-      "types": "./dist/ui/StorachaFab.svelte.d.ts",
-      "svelte": "./dist/ui/StorachaFab.svelte",
-      "import": "./dist/ui/StorachaFab.svelte",
-      "default": "./dist/ui/StorachaFab.svelte"
+    "./ui/P2Pass.svelte": {
+      "types": "./dist/ui/P2Pass.svelte.d.ts",
+      "svelte": "./dist/ui/P2Pass.svelte",
+      "import": "./dist/ui/P2Pass.svelte",
+      "default": "./dist/ui/P2Pass.svelte"
     }
   },
   "peerDependencies": {

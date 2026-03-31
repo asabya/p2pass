@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import {
-    StorachaFab,
+    P2Pass,
     setupP2PStack,
     createLibp2pInstance,
     cleanupP2PStack,
@@ -31,7 +31,7 @@
       getPeerInfo() {
         const peerId = libp2p.peerId.toString();
         // Include loopback: e2e uses two browsers on one host; relay circuit is often /ip4/127.0.0.1/...
-        // (User-facing copy still omits loopback in StorachaIntegration — not copy-paste friendly.)
+        // (User-facing copy still omits loopback in P2PassPanel — not copy-paste friendly.)
         const filtered = libp2p.getMultiaddrs().filter((ma) => {
           const lower = ma.toString().toLowerCase();
           return (
@@ -197,7 +197,7 @@
   >
     {#if logs.length === 0}
       <div style="padding: 3rem; text-align: center; color: #3f3f46;">
-        Waiting for logs... Click the Storacha button to get started.
+        Waiting for logs... Click the P2Pass button to get started.
       </div>
     {/if}
 
@@ -211,7 +211,7 @@
 </div>
 
 <!-- Floating FAB -->
-<StorachaFab
+<P2Pass
   {orbitdb}
   {database}
   {isInitialized}
