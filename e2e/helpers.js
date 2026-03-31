@@ -37,7 +37,9 @@ export async function addVirtualWebAuthn(context, page, options = {}) {
     [SIGNING_PREFERENCE_STORAGE_KEY, pref]
   );
 
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/', { waitUntil: 'load' });
+  // Svelte mounts after HTML; domcontentloaded/load can fire before the FAB exists (flaky in CI).
+  await page.getByTestId('storacha-fab-toggle').waitFor({ state: 'visible', timeout: 120_000 });
   const client = await context.newCDPSession(page);
   await client.send('WebAuthn.enable');
   await client.send('WebAuthn.addVirtualAuthenticator', {
@@ -80,7 +82,9 @@ export async function createPasskeyAndOpenP2PTab(page, options = {}) {
   const mode = resolveE2eSigningPreference(options);
 
   await expect(page).toHaveURL(/localhost/);
-  await page.getByTestId('storacha-fab-toggle').click();
+  const fab = page.getByTestId('storacha-fab-toggle');
+  await expect(fab).toBeVisible({ timeout: 120_000 });
+  await fab.click();
   await expect(page.getByTestId('storacha-panel')).toBeVisible();
 
   await expect(page.getByTestId('storacha-signing-preference-group')).toBeVisible();
@@ -119,7 +123,9 @@ export async function createPasskeyAndOpenP2PTab(page, options = {}) {
 export async function recoverPasskeyFromPreAuth(page, options = {}) {
   const mode = resolveE2eSigningPreference(options);
 
-  await page.getByTestId('storacha-fab-toggle').click();
+  const fab = page.getByTestId('storacha-fab-toggle');
+  await expect(fab).toBeVisible({ timeout: 120_000 });
+  await fab.click();
   await expect(page.getByTestId('storacha-panel')).toBeVisible();
   await expect(page.getByTestId('storacha-signing-preference-group')).toBeVisible();
   await page.getByTestId(signingPreferenceRadioTestId(mode)).click();
@@ -181,9 +187,11 @@ export async function expectLinkedDeviceRowCount(page, count) {
  * @param {import('@playwright/test').Page} page
  */
 export async function ensureStorachaPanelOpen(page) {
+  const fab = page.getByTestId('storacha-fab-toggle');
+  await expect(fab).toBeVisible({ timeout: 120_000 });
   const panel = page.getByTestId('storacha-panel');
   if (!(await panel.isVisible())) {
-    await page.getByTestId('storacha-fab-toggle').click();
+    await fab.click();
   }
   await expect(panel).toBeVisible();
 }
