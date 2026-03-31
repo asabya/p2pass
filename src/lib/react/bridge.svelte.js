@@ -5,8 +5,8 @@
  */
 
 import { mount, unmount } from 'svelte';
-import SvelteFab from '../ui/StorachaFab.svelte';
-import SvelteIntegration from '../ui/StorachaIntegration.svelte';
+import SvelteFab from '../ui/P2Pass.svelte';
+import SvelteIntegration from '../ui/P2PassPanel.svelte';
 
 /**
  * @param {typeof import('svelte').SvelteComponent} Component
@@ -32,7 +32,7 @@ function createWrapper(Component, target, initialProps) {
 }
 
 /**
- * Mount the `StorachaFab` Svelte component (floating button + panel) into `target`.
+ * Mount the `P2Pass` Svelte component (floating button + panel) into `target`.
  *
  * @param {Element} target
  * @param {Record<string, unknown>} initialProps — forwarded to the component
@@ -43,7 +43,7 @@ export function createFab(target, initialProps) {
 }
 
 /**
- * Mount the `StorachaIntegration` Svelte component (full panel) into `target`.
+ * Mount the `P2PassPanel` Svelte component (full panel) into `target`.
  *
  * @param {Element} target
  * @param {Record<string, unknown>} initialProps

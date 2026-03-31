@@ -1,10 +1,12 @@
 /**
- * React host for the Svelte `StorachaIntegration` panel (inline embedding without the FAB).
+ * React host for the Svelte `P2Pass` — floating passkey / Storacha UI.
+ *
+ * Prefer the Svelte component when possible; this wrapper exists for React apps.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { createIntegration } from './bridge.svelte.js';
+import { createFab } from './bridge.svelte.js';
 
-export const P2PassPanel = forwardRef(function P2PassPanel(
+export const P2Pass = forwardRef(function P2Pass(
   {
     isInitialized = false,
     entryCount = 0,
@@ -25,7 +27,7 @@ export const P2PassPanel = forwardRef(function P2PassPanel(
   });
 
   useEffect(() => {
-    bridgeRef.current = createIntegration(containerRef.current, {
+    bridgeRef.current = createFab(containerRef.current, {
       ...servicePropsRef.current,
       isInitialized,
       entryCount,

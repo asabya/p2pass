@@ -65,7 +65,7 @@
     onRestore = () => {},
     onBackup = () => {},
     onAuthenticate = () => {},
-    /** Parent (e.g. StorachaFab) must show the floating panel — otherwise pairing UI is `display:none`. */
+    /** Parent (e.g. P2Pass) must show the floating panel — otherwise pairing UI is `display:none`. */
     onPairingPromptOpen = () => {},
     libp2p = null,
     /** @deprecated Use {@link signingPreference} `'worker'` instead */
@@ -984,7 +984,9 @@
         if (!deviceManager) {
           throw new Error('Device manager not ready');
         }
-        const result = await deviceManager.processIncomingPairingRequest(req, { forcedDecision: forced });
+        const result = await deviceManager.processIncomingPairingRequest(req, {
+          forcedDecision: forced,
+        });
         try {
           devices = await deviceManager.listDevices();
         } catch {

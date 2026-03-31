@@ -3,5 +3,5 @@
  *
  * @module react
  */
-export { P2Pass } from './StorachaFab.jsx';
-export { P2PassPanel } from './StorachaIntegration.jsx';
+export { P2Pass } from './P2Pass.jsx';
+export { P2PassPanel } from './P2PassPanel.jsx';
